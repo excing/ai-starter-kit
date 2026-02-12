@@ -1,0 +1,383 @@
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import * as Card from '$lib/components/ui/card';
+	import * as Table from '$lib/components/ui/table';
+	import * as Tabs from '$lib/components/ui/tabs';
+	import { Button } from '$lib/components/ui/button';
+	import { Badge } from '$lib/components/ui/badge';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import {
+		Plus,
+		Edit,
+		Trash2,
+		Loader2,
+		Server,
+		Link,
+		RefreshCw,
+		ArrowLeft,
+	} from '@lucide/svelte';
+	import { aiProxyStore } from '$lib/stores/ai-proxy';
+	import { AiProxyDialogs } from '$lib/components/admin';
+	import Pagination from '$lib/components/common/Pagination.svelte';
+
+	onMount(() => {
+		aiProxyStore.init();
+	});
+
+	function providerLabel(p: string): string {
+		const map: Record<string, string> = { openai: 'OpenAI', anthropic: 'Anthropic', google: 'Google' };
+		return map[p] || p;
+	}
+
+	function healthVariant(status: string): 'default' | 'destructive' {
+		return status === 'healthy' ? 'default' : 'destructive';
+	}
+
+	function handleTabChange(value: string) {
+		aiProxyStore.activeTab = value as 'proxies' | 'assignments';
+	}
+</script>
+
+<div class="flex flex-col gap-6 p-4 sm:p-6">
+	<!-- 页面标题 -->
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+		<div class="flex items-center gap-3 sm:gap-4">
+			<Button variant="ghost" size="icon" class="shrink-0" onclick={() => goto('/dashboard')}>
+				<ArrowLeft class="h-5 w-5" />
+			</Button>
+			<div class="min-w-0">
+				<h1 class="text-2xl font-bold flex items-center gap-2 sm:text-3xl sm:gap-3">
+					<Server class="h-6 w-6 shrink-0 sm:h-8 sm:w-8" />
+					<span class="truncate">AI Proxy 管理</span>
+				</h1>
+				<p class="text-muted-foreground mt-1 text-sm sm:text-base truncate">管理 AI 代理配置和功能绑定</p>
+			</div>
+		</div>
+		<div class="flex gap-2 self-start sm:self-auto shrink-0">
+			<Button
+				variant="outline"
+				size="sm"
+				class="sm:size-default"
+				onclick={() => { aiProxyStore.resetAssignmentForm(); aiProxyStore.createAssignmentDialogOpen = true; }}
+			>
+				<Link class="mr-1.5 h-4 w-4 sm:mr-2" />
+				添加绑定
+			</Button>
+			<Button
+				size="sm"
+				class="sm:size-default"
+				onclick={() => { aiProxyStore.resetProxyForm(); aiProxyStore.createProxyDialogOpen = true; }}
+			>
+				<Plus class="mr-1.5 h-4 w-4 sm:mr-2" />
+				添加 Proxy
+			</Button>
+		</div>
+	</div>
+
+	<!-- 统计卡片 -->
+	<div class="grid gap-4 md:grid-cols-2">
+		<Card.Root>
+			<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
+				<Card.Title class="text-sm font-medium">Proxy 节点</Card.Title>
+				<Server class="h-4 w-4 text-muted-foreground" />
+			</Card.Header>
+			<Card.Content>
+				{#if aiProxyStore.proxies.loading}
+					<Skeleton class="h-8 w-16 mb-1" />
+					<Skeleton class="h-3 w-24" />
+				{:else}
+					<div class="text-2xl font-bold">{aiProxyStore.proxies.total}</div>
+					<p class="text-xs text-muted-foreground">已配置的代理节点数量</p>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+
+		<Card.Root>
+			<Card.Header class="flex flex-row items-center justify-between space-y-0 pb-2">
+				<Card.Title class="text-sm font-medium">功能绑定</Card.Title>
+				<Link class="h-4 w-4 text-muted-foreground" />
+			</Card.Header>
+			<Card.Content>
+				{#if aiProxyStore.assignments.loading}
+					<Skeleton class="h-8 w-16 mb-1" />
+					<Skeleton class="h-3 w-20" />
+				{:else}
+					<div class="text-2xl font-bold">{aiProxyStore.assignments.total}</div>
+					<p class="text-xs text-muted-foreground">功能与 Proxy 的绑定关系</p>
+				{/if}
+			</Card.Content>
+		</Card.Root>
+	</div>
+
+	<!-- 主内容区 -->
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>Proxy 配置与功能绑定</Card.Title>
+			<Card.Description>管理 AI 代理节点和功能分配</Card.Description>
+		</Card.Header>
+		<Card.Content>
+			<Tabs.Root value={aiProxyStore.activeTab} onValueChange={handleTabChange}>
+				<Tabs.List class="grid w-full grid-cols-2">
+					<Tabs.Trigger value="proxies">
+						<Server class="mr-2 h-4 w-4" />
+						Proxy 配置
+					</Tabs.Trigger>
+					<Tabs.Trigger value="assignments">
+						<Link class="mr-2 h-4 w-4" />
+						功能绑定
+					</Tabs.Trigger>
+				</Tabs.List>
+
+				<!-- Proxy 列表 Tab -->
+				<Tabs.Content value="proxies" class="mt-4">
+					{#if aiProxyStore.proxies.loading}
+						<div class="space-y-2">
+							<Skeleton class="h-16 w-full" />
+							<Skeleton class="h-16 w-full" />
+							<Skeleton class="h-16 w-full" />
+						</div>
+					{:else if aiProxyStore.proxies.items.length === 0}
+						<div class="text-center py-12">
+							<Server class="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+							<h3 class="text-lg font-medium mb-2">暂无 Proxy 配置</h3>
+							<p class="text-muted-foreground mb-4">点击上方按钮添加 AI 代理节点</p>
+							<Button onclick={() => { aiProxyStore.resetProxyForm(); aiProxyStore.createProxyDialogOpen = true; }}>
+								<Plus class="mr-2 h-4 w-4" />
+								添加 Proxy
+							</Button>
+						</div>
+					{:else}
+						<div class="space-y-4">
+							<Table.Root>
+								<Table.Header>
+									<Table.Row>
+										<Table.Head>名称</Table.Head>
+										<Table.Head>Provider</Table.Head>
+										<Table.Head>Base URL</Table.Head>
+										<Table.Head>模型数</Table.Head>
+										<Table.Head>优先级</Table.Head>
+										<Table.Head>健康状态</Table.Head>
+										<Table.Head>状态</Table.Head>
+										<Table.Head class="text-right">操作</Table.Head>
+									</Table.Row>
+								</Table.Header>
+								<Table.Body>
+									{#each aiProxyStore.proxies.items as proxy (proxy.id)}
+										{@const operating = aiProxyStore.isOperating(proxy.id)}
+										<Table.Row class={operating ? 'opacity-50' : ''}>
+											<Table.Cell class="font-medium">{proxy.name}</Table.Cell>
+											<Table.Cell>
+												<Badge variant="outline">{providerLabel(proxy.provider)}</Badge>
+											</Table.Cell>
+											<Table.Cell class="max-w-[200px] truncate text-xs text-muted-foreground" title={proxy.baseUrl}>
+												{proxy.baseUrl}
+											</Table.Cell>
+											<Table.Cell>
+												<Badge variant="secondary">{proxy.models.length}</Badge>
+											</Table.Cell>
+											<Table.Cell>{proxy.priority}</Table.Cell>
+											<Table.Cell>
+												<div class="flex items-center gap-1.5">
+													<Badge variant={healthVariant(proxy.healthStatus)}>
+														{proxy.healthStatus === 'healthy' ? '健康' : '异常'}
+													</Badge>
+													{#if proxy.healthStatus === 'unhealthy'}
+														<button
+															onclick={() => aiProxyStore.resetHealth(proxy.id)}
+															disabled={operating}
+															class="text-muted-foreground hover:text-foreground"
+															title="重置健康状态"
+														>
+															<RefreshCw class="h-3.5 w-3.5" />
+														</button>
+													{/if}
+												</div>
+												{#if proxy.lastError}
+													<p class="mt-1 max-w-[200px] truncate text-xs text-destructive" title={proxy.lastError}>
+														{proxy.lastError}
+													</p>
+												{/if}
+											</Table.Cell>
+											<Table.Cell>
+												<Badge variant={proxy.isActive ? 'default' : 'secondary'}>
+													{proxy.isActive ? '启用' : '停用'}
+												</Badge>
+											</Table.Cell>
+											<Table.Cell class="text-right">
+												<div class="flex justify-end gap-2">
+													<Button size="sm" variant="outline" onclick={() => aiProxyStore.openEditProxyDialog(proxy)} disabled={operating}>
+														<Edit class="h-3 w-3" />
+													</Button>
+													<Button size="sm" variant="outline" onclick={() => aiProxyStore.deleteProxy(proxy.id)} disabled={operating}>
+														{#if operating}
+															<Loader2 class="h-3 w-3 animate-spin" />
+														{:else}
+															<Trash2 class="h-3 w-3" />
+														{/if}
+													</Button>
+												</div>
+											</Table.Cell>
+										</Table.Row>
+									{/each}
+								</Table.Body>
+							</Table.Root>
+
+							{#if aiProxyStore.proxies.total > aiProxyStore.proxies.limit}
+								<Pagination
+									count={aiProxyStore.proxies.total}
+									perPage={aiProxyStore.proxies.limit}
+									bind:page={aiProxyStore.proxies.page}
+									onPageChange={() => aiProxyStore.loadProxies()}
+								/>
+							{/if}
+						</div>
+					{/if}
+				</Tabs.Content>
+
+				<!-- Assignment 列表 Tab -->
+				<Tabs.Content value="assignments" class="mt-4">
+					{#if aiProxyStore.assignments.loading}
+						<div class="space-y-2">
+							<Skeleton class="h-16 w-full" />
+							<Skeleton class="h-16 w-full" />
+							<Skeleton class="h-16 w-full" />
+						</div>
+					{:else if aiProxyStore.assignments.items.length === 0}
+						<div class="text-center py-12">
+							<Link class="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+							<h3 class="text-lg font-medium mb-2">暂无功能绑定</h3>
+							<p class="text-muted-foreground mb-4">请先添加 Proxy 配置，然后创建功能绑定</p>
+							{#if aiProxyStore.proxies.items.length > 0}
+								<Button onclick={() => { aiProxyStore.resetAssignmentForm(); aiProxyStore.createAssignmentDialogOpen = true; }}>
+									<Plus class="mr-2 h-4 w-4" />
+									添加绑定
+								</Button>
+							{/if}
+						</div>
+					{:else}
+						<div class="space-y-4">
+							<Table.Root>
+								<Table.Header>
+									<Table.Row>
+										<Table.Head>名称</Table.Head>
+										<Table.Head>功能标识</Table.Head>
+										<Table.Head>Proxy</Table.Head>
+										<Table.Head>默认模型</Table.Head>
+										<Table.Head>可用模型</Table.Head>
+										<Table.Head>Proxy 状态</Table.Head>
+										<Table.Head>状态</Table.Head>
+										<Table.Head class="text-right">操作</Table.Head>
+									</Table.Row>
+								</Table.Header>
+								<Table.Body>
+									{#each aiProxyStore.assignments.items as assignment (assignment.id)}
+										{@const operating = aiProxyStore.isOperating(assignment.id)}
+										<Table.Row class={operating ? 'opacity-50' : ''}>
+											<Table.Cell>
+												<div class="text-sm">
+													<div class="font-medium">{assignment.name}</div>
+													{#if assignment.description}
+														<div class="text-muted-foreground text-xs">{assignment.description}</div>
+													{/if}
+												</div>
+											</Table.Cell>
+											<Table.Cell>
+												<Badge variant="outline">{assignment.featureKey}</Badge>
+											</Table.Cell>
+											<Table.Cell>
+												<div class="text-sm">
+													<div class="font-medium">{assignment.proxyName}</div>
+													<div class="text-muted-foreground text-xs">{providerLabel(assignment.proxyProvider)}</div>
+												</div>
+											</Table.Cell>
+											<Table.Cell>
+												{#if assignment.defaultModel}
+													<span class="text-xs">{assignment.defaultModel}</span>
+												{:else}
+													<span class="text-xs text-muted-foreground">-</span>
+												{/if}
+											</Table.Cell>
+											<Table.Cell class="max-w-[150px]">
+												{#if assignment.models && assignment.models.length > 0}
+													<span class="text-xs text-muted-foreground">{assignment.models.length}</span>
+												{:else}
+													<span class="text-xs text-muted-foreground">全部</span>
+												{/if}
+											</Table.Cell>
+											<Table.Cell>
+												<Badge variant={healthVariant(assignment.proxyHealthStatus)}>
+													{assignment.proxyHealthStatus === 'healthy' ? '健康' : '异常'}
+												</Badge>
+											</Table.Cell>
+											<Table.Cell>
+												<Badge variant={assignment.isActive ? 'default' : 'secondary'}>
+													{assignment.isActive ? '启用' : '停用'}
+												</Badge>
+											</Table.Cell>
+											<Table.Cell class="text-right">
+												<div class="flex justify-end gap-2">
+													<Button size="sm" variant="outline" onclick={() => aiProxyStore.openEditAssignmentDialog(assignment)} disabled={operating}>
+														<Edit class="h-3 w-3" />
+													</Button>
+													<Button size="sm" variant="outline" onclick={() => aiProxyStore.deleteAssignment(assignment.id)} disabled={operating}>
+														{#if operating}
+															<Loader2 class="h-3 w-3 animate-spin" />
+														{:else}
+															<Trash2 class="h-3 w-3" />
+														{/if}
+													</Button>
+												</div>
+											</Table.Cell>
+										</Table.Row>
+									{/each}
+								</Table.Body>
+							</Table.Root>
+
+							{#if aiProxyStore.assignments.total > aiProxyStore.assignments.limit}
+								<Pagination
+									count={aiProxyStore.assignments.total}
+									perPage={aiProxyStore.assignments.limit}
+									bind:page={aiProxyStore.assignments.page}
+									onPageChange={() => aiProxyStore.loadAssignments()}
+								/>
+							{/if}
+						</div>
+					{/if}
+				</Tabs.Content>
+			</Tabs.Root>
+		</Card.Content>
+	</Card.Root>
+
+	<!-- 使用说明 -->
+	<Card.Root>
+		<Card.Header>
+			<Card.Title>使用说明</Card.Title>
+		</Card.Header>
+		<Card.Content class="space-y-3 text-sm">
+			<div class="grid gap-4 md:grid-cols-2">
+				<div class="p-4 rounded-lg bg-muted/50">
+					<p class="font-medium mb-2">Proxy 配置</p>
+					<ul class="text-muted-foreground space-y-1">
+						<li>添加 AI 服务代理节点（OpenAI、Anthropic、Google）</li>
+						<li>设置优先级，数值越大越优先使用</li>
+						<li>连续 3 次请求失败自动标记为异常</li>
+						<li>API Key 使用 AES-256 加密存储</li>
+					</ul>
+				</div>
+				<div class="p-4 rounded-lg bg-muted/50">
+					<p class="font-medium mb-2">功能绑定</p>
+					<ul class="text-muted-foreground space-y-1">
+						<li>为功能（如 chat）绑定指定的 Proxy</li>
+						<li>可指定可用模型范围（留空表示全部）</li>
+						<li>设置默认模型，用于功能的默认调用</li>
+						<li>未配置绑定时自动回退到环境变量</li>
+					</ul>
+				</div>
+			</div>
+		</Card.Content>
+	</Card.Root>
+</div>
+
+<!-- 对话框 -->
+<AiProxyDialogs />

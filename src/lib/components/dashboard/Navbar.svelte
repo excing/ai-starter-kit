@@ -13,6 +13,7 @@
         Coins,
         Package,
         Ticket,
+        Server,
     } from "lucide-svelte";
 
     import type { Snippet } from "svelte";
@@ -93,6 +94,15 @@
                             <Button variant="outline" class="w-full">
                                 <Ticket class="mr-2 h-4 w-4" />
                                 兑换码管理
+                            </Button>
+                        </a>
+                        <a
+                            href="/dashboard/admin/ai-proxy"
+                            onclick={() => (sheetOpen = false)}
+                        >
+                            <Button variant="outline" class="w-full">
+                                <Server class="mr-2 h-4 w-4" />
+                                AI Proxy
                             </Button>
                         </a>
                     {/if}

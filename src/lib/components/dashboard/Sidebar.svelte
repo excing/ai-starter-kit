@@ -13,6 +13,7 @@
         Coins,
         Package,
         Ticket,
+        Server,
     } from "lucide-svelte";
 
     interface NavItem {
@@ -54,6 +55,11 @@
             label: "兑换码管理",
             href: "/dashboard/admin/codes",
             icon: Ticket,
+        },
+        {
+            label: "AI Proxy",
+            href: "/dashboard/admin/ai-proxy",
+            icon: Server,
         },
     ];
 
