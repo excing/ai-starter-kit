@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import * as Card from '$lib/components/ui/card';
 	import * as Table from '$lib/components/ui/table';
 	import * as Tabs from '$lib/components/ui/tabs';
@@ -15,7 +14,6 @@
 		Server,
 		Link,
 		RefreshCw,
-		ArrowLeft,
 	} from '@lucide/svelte';
 	import { aiProxyStore } from '$lib/stores/ai-proxy';
 	import { AiProxyDialogs } from '$lib/components/admin';
@@ -41,20 +39,15 @@
 
 <div class="flex flex-col gap-6 p-4 sm:p-6">
 	<!-- 页面标题 -->
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-		<div class="flex items-center gap-3 sm:gap-4">
-			<Button variant="ghost" size="icon" class="shrink-0" onclick={() => goto('/dashboard')}>
-				<ArrowLeft class="h-5 w-5" />
-			</Button>
-			<div class="min-w-0">
-				<h1 class="text-2xl font-bold flex items-center gap-2 sm:text-3xl sm:gap-3">
-					<Server class="h-6 w-6 shrink-0 sm:h-8 sm:w-8" />
-					<span class="truncate">AI Proxy 管理</span>
-				</h1>
-				<p class="text-muted-foreground mt-1 text-sm sm:text-base truncate">管理 AI 代理配置和功能绑定</p>
-			</div>
+	<div class="flex items-center justify-between gap-3">
+		<div class="min-w-0">
+			<h1 class="text-2xl font-bold flex items-center gap-2 sm:text-3xl sm:gap-3">
+				<Server class="h-6 w-6 shrink-0 sm:h-8 sm:w-8" />
+				<span class="hidden sm:inline truncate">AI Proxy 管理</span>
+			</h1>
+			<p class="text-muted-foreground mt-1 text-sm sm:text-base truncate hidden sm:block">管理 AI 代理配置和功能绑定</p>
 		</div>
-		<div class="flex gap-2 self-start sm:self-auto shrink-0">
+		<div class="flex gap-2 shrink-0">
 			<Button
 				variant="outline"
 				size="sm"

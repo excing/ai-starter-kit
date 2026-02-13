@@ -8,8 +8,9 @@
     import { Label } from "$lib/components/ui/label";
     import { Badge } from "$lib/components/ui/badge";
     import { Separator } from "$lib/components/ui/separator";
+    import { Skeleton } from "$lib/components/ui/skeleton";
     import {
-        Ticket, Plus, Copy, Check, RefreshCw, Eye, Undo2,
+        Ticket, Plus, Copy, Check, Loader2, Eye, Undo2,
     } from "lucide-svelte";
     import { toast } from "svelte-sonner";
     import type {
@@ -238,66 +239,77 @@
     });
 </script>
 
-<section class="flex w-full flex-col items-start justify-start p-6">
-    <div class="w-full">
-        <div class="flex items-center justify-between">
-            <div class="flex flex-col items-start justify-center gap-2">
-                <h1 class="text-3xl font-semibold tracking-tight">兑换码管理</h1>
-                <p class="text-muted-foreground">生成和管理兑换码</p>
-            </div>
-            <Button onclick={openGenerateDialog}>
-                <Plus class="mr-2 h-4 w-4" />
+<div class="flex flex-col gap-6 p-4 sm:p-6">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+            <h1 class="text-2xl font-bold flex items-center gap-2 sm:text-3xl sm:gap-3">
+                <Ticket class="h-6 w-6 shrink-0 sm:h-8 sm:w-8" />
+                <span class="hidden sm:inline truncate">兑换码管理</span>
+            </h1>
+            <p class="text-muted-foreground mt-1 text-sm sm:text-base truncate hidden sm:block">生成和管理兑换码</p>
+        </div>
+        <div class="flex gap-2 shrink-0">
+            <Button size="sm" class="sm:size-default" onclick={openGenerateDialog}>
+                <Plus class="mr-1.5 h-4 w-4 sm:mr-2" />
                 生成兑换码
             </Button>
         </div>
+    </div>
 
-        <!-- Filters -->
-        <div class="mt-6 flex flex-wrap items-center gap-3">
-            <Select.Root type="single" bind:value={filterPackageId}>
-                <Select.Trigger class="w-48">
-                    {filterPackageId
-                        ? packages.find(p => p.id === filterPackageId)?.name ?? "全部套餐"
-                        : "全部套餐"}
-                </Select.Trigger>
-                <Select.Content>
-                    <Select.Item value="">全部套餐</Select.Item>
-                    {#each packages as pkg (pkg.id)}
-                        <Select.Item value={pkg.id}>{pkg.name}</Select.Item>
-                    {/each}
-                </Select.Content>
-            </Select.Root>
-            <Select.Root type="single" bind:value={filterStatus}>
-                <Select.Trigger class="w-36">
-                    {filterStatus === "true" ? "启用" : filterStatus === "false" ? "停用" : "全部状态"}
-                </Select.Trigger>
-                <Select.Content>
-                    <Select.Item value="">全部状态</Select.Item>
-                    <Select.Item value="true">启用</Select.Item>
-                    <Select.Item value="false">停用</Select.Item>
-                </Select.Content>
-            </Select.Root>
-        </div>
+    <!-- 主内容区 -->
+    <Card.Root>
+        <Card.Header>
+            <Card.Title>兑换码列表</Card.Title>
+            <Card.Description>管理所有兑换码及其使用状态</Card.Description>
+        </Card.Header>
+        <Card.Content>
+            <!-- 筛选器 -->
+            <div class="mb-4 flex flex-wrap items-center gap-3">
+                <Select.Root type="single" bind:value={filterPackageId}>
+                    <Select.Trigger class="w-48">
+                        {filterPackageId
+                            ? packages.find(p => p.id === filterPackageId)?.name ?? "全部套餐"
+                            : "全部套餐"}
+                    </Select.Trigger>
+                    <Select.Content>
+                        <Select.Item value="">全部套餐</Select.Item>
+                        {#each packages as pkg (pkg.id)}
+                            <Select.Item value={pkg.id}>{pkg.name}</Select.Item>
+                        {/each}
+                    </Select.Content>
+                </Select.Root>
+                <Select.Root type="single" bind:value={filterStatus}>
+                    <Select.Trigger class="w-36">
+                        {filterStatus === "true" ? "启用" : filterStatus === "false" ? "停用" : "全部状态"}
+                    </Select.Trigger>
+                    <Select.Content>
+                        <Select.Item value="">全部状态</Select.Item>
+                        <Select.Item value="true">启用</Select.Item>
+                        <Select.Item value="false">停用</Select.Item>
+                    </Select.Content>
+                </Select.Root>
+            </div>
 
-        <!-- Codes Table -->
-        <div class="mt-4">
             {#if loading}
-                <Card.Root>
-                    <Card.Content class="py-8 text-center">
-                        <RefreshCw class="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-                        <p class="text-muted-foreground mt-2 text-sm">加载中...</p>
-                    </Card.Content>
-                </Card.Root>
+                <div class="space-y-2">
+                    <Skeleton class="h-16 w-full" />
+                    <Skeleton class="h-16 w-full" />
+                    <Skeleton class="h-16 w-full" />
+                </div>
             {:else if codes.length === 0}
-                <Card.Root>
-                    <Card.Content class="py-8 text-center">
-                        <Ticket class="text-muted-foreground mx-auto h-8 w-8" />
-                        <p class="text-muted-foreground mt-2 text-sm">暂无兑换码</p>
-                    </Card.Content>
-                </Card.Root>
+                <div class="text-center py-12">
+                    <Ticket class="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 class="text-lg font-medium mb-2">暂无兑换码</h3>
+                    <p class="text-muted-foreground mb-4">点击上方按钮生成兑换码</p>
+                    <Button onclick={openGenerateDialog}>
+                        <Plus class="mr-2 h-4 w-4" />
+                        生成兑换码
+                    </Button>
+                </div>
             {:else}
-                <Card.Root>
-                    <div class="overflow-x-auto">
-                        <Table.Root>
+                <div class="overflow-x-auto">
+                    <Table.Root>
                             <Table.Header>
                                 <Table.Row>
                                     <Table.Head>兑换码</Table.Head>
@@ -358,11 +370,10 @@
                             </Table.Body>
                         </Table.Root>
                     </div>
-                </Card.Root>
             {/if}
-        </div>
-    </div>
-</section>
+        </Card.Content>
+    </Card.Root>
+</div>
 
 <!-- Generate Codes Dialog -->
 <Dialog.Root bind:open={generateOpen}>
@@ -430,7 +441,7 @@
                 </Button>
                 <Button type="submit" disabled={generating}>
                     {#if generating}
-                        <RefreshCw class="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 class="mr-2 h-4 w-4 animate-spin" />
                         生成中...
                     {:else}
                         生成
@@ -458,7 +469,7 @@
         <div class="max-h-96 overflow-y-auto">
             {#if loadingRedemptions}
                 <div class="py-8 text-center">
-                    <RefreshCw class="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
+                    <Loader2 class="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
                     <p class="text-muted-foreground mt-2 text-sm">加载中...</p>
                 </div>
             {:else if redemptions.length === 0}
@@ -501,7 +512,7 @@
                                             onclick={() => handleRefund(r.id)}
                                         >
                                             {#if refunding === r.id}
-                                                <RefreshCw class="mr-1 h-3.5 w-3.5 animate-spin" />
+                                                <Loader2 class="mr-1 h-3.5 w-3.5 animate-spin" />
                                                 退款中...
                                             {:else}
                                                 <Undo2 class="mr-1 h-3.5 w-3.5" />

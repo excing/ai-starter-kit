@@ -7,7 +7,8 @@
     import { Label } from "$lib/components/ui/label";
     import { Badge } from "$lib/components/ui/badge";
     import { Textarea } from "$lib/components/ui/textarea";
-    import { Package, Plus, Pencil, RefreshCw } from "lucide-svelte";
+    import { Skeleton } from "$lib/components/ui/skeleton";
+    import { Package, Plus, Pencil, Loader2 } from "lucide-svelte";
     import { toast } from "svelte-sonner";
     import type { CreditPackage } from "$lib/types/credits";
 
@@ -149,37 +150,49 @@
     });
 </script>
 
-<section class="flex w-full flex-col items-start justify-start p-6">
-    <div class="w-full">
-        <div class="flex items-center justify-between">
-            <div class="flex flex-col items-start justify-center gap-2">
-                <h1 class="text-3xl font-semibold tracking-tight">套餐管理</h1>
-                <p class="text-muted-foreground">创建和管理积分套餐</p>
-            </div>
-            <Button onclick={openCreateDialog}>
-                <Plus class="mr-2 h-4 w-4" />
+<div class="flex flex-col gap-6 p-4 sm:p-6">
+    <!-- 页面标题 -->
+    <div class="flex items-center justify-between gap-3">
+        <div class="min-w-0">
+            <h1 class="text-2xl font-bold flex items-center gap-2 sm:text-3xl sm:gap-3">
+                <Package class="h-6 w-6 shrink-0 sm:h-8 sm:w-8" />
+                <span class="hidden sm:inline truncate">套餐管理</span>
+            </h1>
+            <p class="text-muted-foreground mt-1 text-sm sm:text-base truncate hidden sm:block">创建和管理积分套餐</p>
+        </div>
+        <div class="flex gap-2 shrink-0">
+            <Button size="sm" class="sm:size-default" onclick={openCreateDialog}>
+                <Plus class="mr-1.5 h-4 w-4 sm:mr-2" />
                 创建套餐
             </Button>
         </div>
+    </div>
 
-        <div class="mt-6">
+    <!-- 主内容区 -->
+    <Card.Root>
+        <Card.Header>
+            <Card.Title>套餐列表</Card.Title>
+            <Card.Description>管理所有积分套餐配置</Card.Description>
+        </Card.Header>
+        <Card.Content>
             {#if loading}
-                <Card.Root>
-                    <Card.Content class="py-8 text-center">
-                        <RefreshCw class="text-muted-foreground mx-auto h-6 w-6 animate-spin" />
-                        <p class="text-muted-foreground mt-2 text-sm">加载中...</p>
-                    </Card.Content>
-                </Card.Root>
+                <div class="space-y-2">
+                    <Skeleton class="h-16 w-full" />
+                    <Skeleton class="h-16 w-full" />
+                    <Skeleton class="h-16 w-full" />
+                </div>
             {:else if packages.length === 0}
-                <Card.Root>
-                    <Card.Content class="py-8 text-center">
-                        <Package class="text-muted-foreground mx-auto h-8 w-8" />
-                        <p class="text-muted-foreground mt-2 text-sm">暂无套餐，点击上方按钮创建</p>
-                    </Card.Content>
-                </Card.Root>
+                <div class="text-center py-12">
+                    <Package class="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h3 class="text-lg font-medium mb-2">暂无套餐</h3>
+                    <p class="text-muted-foreground mb-4">点击上方按钮创建积分套餐</p>
+                    <Button onclick={openCreateDialog}>
+                        <Plus class="mr-2 h-4 w-4" />
+                        创建套餐
+                    </Button>
+                </div>
             {:else}
-                <Card.Root>
-                    <Table.Root>
+                <Table.Root>
                         <Table.Header>
                             <Table.Row>
                                 <Table.Head>名称</Table.Head>
@@ -212,11 +225,11 @@
                                     </Table.Cell>
                                     <Table.Cell class="text-right">
                                         <div class="flex items-center justify-end gap-2">
-                                            <Button variant="ghost" size="sm" onclick={() => openEditDialog(pkg)}>
-                                                <Pencil class="h-4 w-4" />
+                                            <Button variant="outline" size="sm" onclick={() => openEditDialog(pkg)}>
+                                                <Pencil class="h-3 w-3" />
                                             </Button>
                                             <Button
-                                                variant="ghost"
+                                                variant="outline"
                                                 size="sm"
                                                 onclick={() => toggleActive(pkg)}
                                             >
@@ -228,11 +241,10 @@
                             {/each}
                         </Table.Body>
                     </Table.Root>
-                </Card.Root>
             {/if}
-        </div>
-    </div>
-</section>
+        </Card.Content>
+    </Card.Root>
+</div>
 
 <!-- Create/Edit Dialog -->
 <Dialog.Root bind:open={dialogOpen}>
@@ -293,7 +305,7 @@
                 </Button>
                 <Button type="submit" disabled={submitting}>
                     {#if submitting}
-                        <RefreshCw class="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 class="mr-2 h-4 w-4 animate-spin" />
                         提交中...
                     {:else}
                         {editing ? "保存" : "创建"}
