@@ -5,6 +5,7 @@
 import { toast } from 'svelte-sonner';
 import { PaginatedState } from '../pagination.svelte';
 import { fetchModelList, testModelChat } from './model-testing';
+import { aiProxyAssignmentsStore } from './assignments.svelte';
 import type { AiProxyItem, ProxyFormData } from '$lib/types/admin';
 import { AI_PROVIDER, HEALTH_STATUS } from '$lib/config/constants';
 
@@ -142,7 +143,7 @@ class AiProxyProxiesStore {
 		}
 	}
 
-	async updateProxy(silentReloadAssignments: () => Promise<void>) {
+	async updateProxy() {
 		if (!this.proxyForm.name || !this.proxyForm.baseUrl) {
 			toast.error('请填写必填字段');
 			return false;
@@ -173,7 +174,7 @@ class AiProxyProxiesStore {
 				const data = await res.json();
 				const updatedProxy: AiProxyItem = data.proxy;
 				this.patchProxyItem(this.proxyForm.id, updatedProxy);
-				silentReloadAssignments();
+				aiProxyAssignmentsStore.silentReloadAssignments();
 				toast.success('Proxy 更新成功');
 				this.editProxyDialogOpen = false;
 				this.resetProxyForm();
@@ -192,7 +193,7 @@ class AiProxyProxiesStore {
 		}
 	}
 
-	async deleteProxy(proxyId: string, silentReloadAssignments: () => Promise<void>) {
+	async deleteProxy(proxyId: string) {
 		if (!confirm('确定要删除这个 Proxy 吗？关联的绑定也会被删除。')) {
 			return false;
 		}
@@ -214,7 +215,7 @@ class AiProxyProxiesStore {
 
 			if (res.ok) {
 				toast.success('Proxy 删除成功');
-				silentReloadAssignments();
+				aiProxyAssignmentsStore.silentReloadAssignments();
 				return true;
 			} else {
 				this.proxies.items = [
@@ -242,7 +243,7 @@ class AiProxyProxiesStore {
 		}
 	}
 
-	async resetHealth(proxyId: string, patchAssignmentHealthStatus: (proxyId: string, status: string) => void) {
+	async resetHealth(proxyId: string) {
 		this.startOperation(proxyId);
 		const oldProxy = this.proxies.items.find((p) => p.id === proxyId);
 		if (oldProxy) {
@@ -252,7 +253,7 @@ class AiProxyProxiesStore {
 				lastError: null,
 				lastErrorAt: null
 			});
-			patchAssignmentHealthStatus(proxyId, HEALTH_STATUS.HEALTHY);
+			aiProxyAssignmentsStore.patchAssignmentHealthStatus(proxyId, HEALTH_STATUS.HEALTHY);
 		}
 		try {
 			const res = await fetch(`/api/admin/ai-proxy/${proxyId}/reset-health`, { method: 'POST' });
@@ -268,7 +269,7 @@ class AiProxyProxiesStore {
 						lastError: oldProxy.lastError,
 						lastErrorAt: oldProxy.lastErrorAt
 					});
-					patchAssignmentHealthStatus(proxyId, oldProxy.healthStatus);
+					aiProxyAssignmentsStore.patchAssignmentHealthStatus(proxyId, oldProxy.healthStatus);
 				}
 				const data = await res.json();
 				toast.error(data.error || '重置失败');
@@ -282,7 +283,7 @@ class AiProxyProxiesStore {
 					lastError: oldProxy.lastError,
 					lastErrorAt: oldProxy.lastErrorAt
 				});
-				patchAssignmentHealthStatus(proxyId, oldProxy.healthStatus);
+				aiProxyAssignmentsStore.patchAssignmentHealthStatus(proxyId, oldProxy.healthStatus);
 			}
 			console.error('重置健康状态失败:', error);
 			toast.error('重置失败，请重试');

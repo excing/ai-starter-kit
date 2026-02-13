@@ -15,12 +15,17 @@
 		Link,
 		RefreshCw,
 	} from '@lucide/svelte';
-	import { aiProxyStore } from '$lib/stores/ai-proxy';
+	import { aiProxyProxiesStore, aiProxyAssignmentsStore } from '$lib/stores/ai-proxy';
 	import { AiProxyDialogs } from '$lib/components/admin';
 	import Pagination from '$lib/components/common/Pagination.svelte';
 
+	let activeTab = $state<'proxies' | 'assignments'>('proxies');
+
 	onMount(() => {
-		aiProxyStore.init();
+		Promise.all([
+			aiProxyProxiesStore.loadProxies(),
+			aiProxyAssignmentsStore.loadAssignments()
+		]);
 	});
 
 	function providerLabel(p: string): string {
@@ -33,7 +38,7 @@
 	}
 
 	function handleTabChange(value: string) {
-		aiProxyStore.activeTab = value as 'proxies' | 'assignments';
+		activeTab = value as 'proxies' | 'assignments';
 	}
 </script>
 
@@ -52,7 +57,7 @@
 				variant="outline"
 				size="sm"
 				class="sm:size-default"
-				onclick={() => { aiProxyStore.resetAssignmentForm(); aiProxyStore.createAssignmentDialogOpen = true; }}
+				onclick={() => { aiProxyAssignmentsStore.resetAssignmentForm(); aiProxyAssignmentsStore.createAssignmentDialogOpen = true; }}
 			>
 				<Link class="mr-1.5 h-4 w-4 sm:mr-2" />
 				添加绑定
@@ -60,7 +65,7 @@
 			<Button
 				size="sm"
 				class="sm:size-default"
-				onclick={() => { aiProxyStore.resetProxyForm(); aiProxyStore.createProxyDialogOpen = true; }}
+				onclick={() => { aiProxyProxiesStore.resetProxyForm(); aiProxyProxiesStore.createProxyDialogOpen = true; }}
 			>
 				<Plus class="mr-1.5 h-4 w-4 sm:mr-2" />
 				添加 Proxy
@@ -76,11 +81,11 @@
 				<Server class="h-4 w-4 text-muted-foreground" />
 			</Card.Header>
 			<Card.Content>
-				{#if aiProxyStore.proxies.loading}
+				{#if aiProxyProxiesStore.proxies.loading}
 					<Skeleton class="h-8 w-16 mb-1" />
 					<Skeleton class="h-3 w-24" />
 				{:else}
-					<div class="text-2xl font-bold">{aiProxyStore.proxies.total}</div>
+					<div class="text-2xl font-bold">{aiProxyProxiesStore.proxies.total}</div>
 					<p class="text-xs text-muted-foreground">已配置的代理节点数量</p>
 				{/if}
 			</Card.Content>
@@ -92,11 +97,11 @@
 				<Link class="h-4 w-4 text-muted-foreground" />
 			</Card.Header>
 			<Card.Content>
-				{#if aiProxyStore.assignments.loading}
+				{#if aiProxyAssignmentsStore.assignments.loading}
 					<Skeleton class="h-8 w-16 mb-1" />
 					<Skeleton class="h-3 w-20" />
 				{:else}
-					<div class="text-2xl font-bold">{aiProxyStore.assignments.total}</div>
+					<div class="text-2xl font-bold">{aiProxyAssignmentsStore.assignments.total}</div>
 					<p class="text-xs text-muted-foreground">功能与 Proxy 的绑定关系</p>
 				{/if}
 			</Card.Content>
@@ -110,7 +115,7 @@
 			<Card.Description>管理 AI 代理节点和功能分配</Card.Description>
 		</Card.Header>
 		<Card.Content>
-			<Tabs.Root value={aiProxyStore.activeTab} onValueChange={handleTabChange}>
+			<Tabs.Root value={activeTab} onValueChange={handleTabChange}>
 				<Tabs.List class="grid w-full grid-cols-2">
 					<Tabs.Trigger value="proxies">
 						<Server class="mr-2 h-4 w-4" />
@@ -124,18 +129,18 @@
 
 				<!-- Proxy 列表 Tab -->
 				<Tabs.Content value="proxies" class="mt-4">
-					{#if aiProxyStore.proxies.loading}
+					{#if aiProxyProxiesStore.proxies.loading}
 						<div class="space-y-2">
 							<Skeleton class="h-16 w-full" />
 							<Skeleton class="h-16 w-full" />
 							<Skeleton class="h-16 w-full" />
 						</div>
-					{:else if aiProxyStore.proxies.items.length === 0}
+					{:else if aiProxyProxiesStore.proxies.items.length === 0}
 						<div class="text-center py-12">
 							<Server class="mx-auto h-12 w-12 text-muted-foreground mb-4" />
 							<h3 class="text-lg font-medium mb-2">暂无 Proxy 配置</h3>
 							<p class="text-muted-foreground mb-4">点击上方按钮添加 AI 代理节点</p>
-							<Button onclick={() => { aiProxyStore.resetProxyForm(); aiProxyStore.createProxyDialogOpen = true; }}>
+							<Button onclick={() => { aiProxyProxiesStore.resetProxyForm(); aiProxyProxiesStore.createProxyDialogOpen = true; }}>
 								<Plus class="mr-2 h-4 w-4" />
 								添加 Proxy
 							</Button>
@@ -156,8 +161,8 @@
 									</Table.Row>
 								</Table.Header>
 								<Table.Body>
-									{#each aiProxyStore.proxies.items as proxy (proxy.id)}
-										{@const operating = aiProxyStore.isOperating(proxy.id)}
+									{#each aiProxyProxiesStore.proxies.items as proxy (proxy.id)}
+										{@const operating = aiProxyProxiesStore.isOperating(proxy.id)}
 										<Table.Row class={operating ? 'opacity-50' : ''}>
 											<Table.Cell class="font-medium">{proxy.name}</Table.Cell>
 											<Table.Cell>
@@ -177,7 +182,7 @@
 													</Badge>
 													{#if proxy.healthStatus === 'unhealthy'}
 														<button
-															onclick={() => aiProxyStore.resetHealth(proxy.id)}
+															onclick={() => aiProxyProxiesStore.resetHealth(proxy.id)}
 															disabled={operating}
 															class="text-muted-foreground hover:text-foreground"
 															title="重置健康状态"
@@ -199,10 +204,10 @@
 											</Table.Cell>
 											<Table.Cell class="text-right">
 												<div class="flex justify-end gap-2">
-													<Button size="sm" variant="outline" onclick={() => aiProxyStore.openEditProxyDialog(proxy)} disabled={operating}>
+													<Button size="sm" variant="outline" onclick={() => aiProxyProxiesStore.openEditProxyDialog(proxy)} disabled={operating}>
 														<Edit class="h-3 w-3" />
 													</Button>
-													<Button size="sm" variant="outline" onclick={() => aiProxyStore.deleteProxy(proxy.id)} disabled={operating}>
+													<Button size="sm" variant="outline" onclick={() => aiProxyProxiesStore.deleteProxy(proxy.id)} disabled={operating}>
 														{#if operating}
 															<Loader2 class="h-3 w-3 animate-spin" />
 														{:else}
@@ -216,12 +221,12 @@
 								</Table.Body>
 							</Table.Root>
 
-							{#if aiProxyStore.proxies.total > aiProxyStore.proxies.limit}
+							{#if aiProxyProxiesStore.proxies.total > aiProxyProxiesStore.proxies.limit}
 								<Pagination
-									count={aiProxyStore.proxies.total}
-									perPage={aiProxyStore.proxies.limit}
-									bind:page={aiProxyStore.proxies.page}
-									onPageChange={() => aiProxyStore.loadProxies()}
+									count={aiProxyProxiesStore.proxies.total}
+									perPage={aiProxyProxiesStore.proxies.limit}
+									bind:page={aiProxyProxiesStore.proxies.page}
+									onPageChange={() => aiProxyProxiesStore.loadProxies()}
 								/>
 							{/if}
 						</div>
@@ -230,19 +235,19 @@
 
 				<!-- Assignment 列表 Tab -->
 				<Tabs.Content value="assignments" class="mt-4">
-					{#if aiProxyStore.assignments.loading}
+					{#if aiProxyAssignmentsStore.assignments.loading}
 						<div class="space-y-2">
 							<Skeleton class="h-16 w-full" />
 							<Skeleton class="h-16 w-full" />
 							<Skeleton class="h-16 w-full" />
 						</div>
-					{:else if aiProxyStore.assignments.items.length === 0}
+					{:else if aiProxyAssignmentsStore.assignments.items.length === 0}
 						<div class="text-center py-12">
 							<Link class="mx-auto h-12 w-12 text-muted-foreground mb-4" />
 							<h3 class="text-lg font-medium mb-2">暂无功能绑定</h3>
 							<p class="text-muted-foreground mb-4">请先添加 Proxy 配置，然后创建功能绑定</p>
-							{#if aiProxyStore.proxies.items.length > 0}
-								<Button onclick={() => { aiProxyStore.resetAssignmentForm(); aiProxyStore.createAssignmentDialogOpen = true; }}>
+							{#if aiProxyProxiesStore.proxies.items.length > 0}
+								<Button onclick={() => { aiProxyAssignmentsStore.resetAssignmentForm(); aiProxyAssignmentsStore.createAssignmentDialogOpen = true; }}>
 									<Plus class="mr-2 h-4 w-4" />
 									添加绑定
 								</Button>
@@ -264,8 +269,8 @@
 									</Table.Row>
 								</Table.Header>
 								<Table.Body>
-									{#each aiProxyStore.assignments.items as assignment (assignment.id)}
-										{@const operating = aiProxyStore.isOperating(assignment.id)}
+									{#each aiProxyAssignmentsStore.assignments.items as assignment (assignment.id)}
+										{@const operating = aiProxyProxiesStore.isOperating(assignment.id)}
 										<Table.Row class={operating ? 'opacity-50' : ''}>
 											<Table.Cell>
 												<div class="text-sm">
@@ -310,10 +315,10 @@
 											</Table.Cell>
 											<Table.Cell class="text-right">
 												<div class="flex justify-end gap-2">
-													<Button size="sm" variant="outline" onclick={() => aiProxyStore.openEditAssignmentDialog(assignment)} disabled={operating}>
+													<Button size="sm" variant="outline" onclick={() => aiProxyAssignmentsStore.openEditAssignmentDialog(assignment)} disabled={operating}>
 														<Edit class="h-3 w-3" />
 													</Button>
-													<Button size="sm" variant="outline" onclick={() => aiProxyStore.deleteAssignment(assignment.id)} disabled={operating}>
+													<Button size="sm" variant="outline" onclick={() => aiProxyAssignmentsStore.deleteAssignment(assignment.id)} disabled={operating}>
 														{#if operating}
 															<Loader2 class="h-3 w-3 animate-spin" />
 														{:else}
@@ -327,12 +332,12 @@
 								</Table.Body>
 							</Table.Root>
 
-							{#if aiProxyStore.assignments.total > aiProxyStore.assignments.limit}
+							{#if aiProxyAssignmentsStore.assignments.total > aiProxyAssignmentsStore.assignments.limit}
 								<Pagination
-									count={aiProxyStore.assignments.total}
-									perPage={aiProxyStore.assignments.limit}
-									bind:page={aiProxyStore.assignments.page}
-									onPageChange={() => aiProxyStore.loadAssignments()}
+									count={aiProxyAssignmentsStore.assignments.total}
+									perPage={aiProxyAssignmentsStore.assignments.limit}
+									bind:page={aiProxyAssignmentsStore.assignments.page}
+									onPageChange={() => aiProxyAssignmentsStore.loadAssignments()}
 								/>
 							{/if}
 						</div>

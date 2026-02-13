@@ -1,11 +1,11 @@
 <script lang="ts">
 	import ProxyFormDialog from './ProxyFormDialog.svelte';
 	import AssignmentFormDialog from './AssignmentFormDialog.svelte';
-	import { aiProxyStore } from '$lib/stores/ai-proxy';
+	import { aiProxyProxiesStore, aiProxyAssignmentsStore } from '$lib/stores/ai-proxy';
 </script>
 
-<ProxyFormDialog mode="create" bind:open={aiProxyStore.createProxyDialogOpen} />
-<ProxyFormDialog mode="edit" bind:open={aiProxyStore.editProxyDialogOpen} />
+<ProxyFormDialog mode="create" bind:open={aiProxyProxiesStore.createProxyDialogOpen} />
+<ProxyFormDialog mode="edit" bind:open={aiProxyProxiesStore.editProxyDialogOpen} />
 
-<AssignmentFormDialog mode="create" bind:open={aiProxyStore.createAssignmentDialogOpen} />
-<AssignmentFormDialog mode="edit" bind:open={aiProxyStore.editAssignmentDialogOpen} />
+<AssignmentFormDialog mode="create" bind:open={aiProxyAssignmentsStore.createAssignmentDialogOpen} />
+<AssignmentFormDialog mode="edit" bind:open={aiProxyAssignmentsStore.editAssignmentDialogOpen} />

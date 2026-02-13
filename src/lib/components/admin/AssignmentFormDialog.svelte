@@ -6,7 +6,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Loader2 } from '@lucide/svelte';
-	import { aiProxyStore } from '$lib/stores/ai-proxy';
+	import { aiProxyProxiesStore, aiProxyAssignmentsStore } from '$lib/stores/ai-proxy';
 
 	let { mode, open = $bindable() }: { mode: 'create' | 'edit'; open: boolean } = $props();
 
@@ -30,36 +30,36 @@
 	}
 
 	function isModelSelected(model: string): boolean {
-		return parseModels(aiProxyStore.assignmentForm.models).includes(model);
+		return parseModels(aiProxyAssignmentsStore.assignmentForm.models).includes(model);
 	}
 
 	function toggleModel(model: string) {
-		const current = parseModels(aiProxyStore.assignmentForm.models);
+		const current = parseModels(aiProxyAssignmentsStore.assignmentForm.models);
 		if (current.includes(model)) {
-			aiProxyStore.assignmentForm.models = current.filter((m) => m !== model).join(', ');
+			aiProxyAssignmentsStore.assignmentForm.models = current.filter((m) => m !== model).join(', ');
 		} else {
-			aiProxyStore.assignmentForm.models = [...current, model].join(', ');
+			aiProxyAssignmentsStore.assignmentForm.models = [...current, model].join(', ');
 		}
 	}
 
 	function setAsDefaultModel(model: string) {
-		aiProxyStore.assignmentForm.defaultModel = model;
+		aiProxyAssignmentsStore.assignmentForm.defaultModel = model;
 	}
 
 	function getSelectedProxyModels(): string[] {
-		return aiProxyStore.getProxyModels(aiProxyStore.assignmentForm.proxyId);
+		return aiProxyProxiesStore.getProxyModels(aiProxyAssignmentsStore.assignmentForm.proxyId);
 	}
 
 	function handleSubmit() {
 		if (isEdit) {
-			aiProxyStore.updateAssignment();
+			aiProxyAssignmentsStore.updateAssignment();
 		} else {
-			aiProxyStore.createAssignment();
+			aiProxyAssignmentsStore.createAssignment();
 		}
 	}
 
 	function getSelectedProxyLabel(): string {
-		const proxy = aiProxyStore.proxies.items.find(p => p.id === aiProxyStore.assignmentForm.proxyId);
+		const proxy = aiProxyProxiesStore.proxies.items.find(p => p.id === aiProxyAssignmentsStore.assignmentForm.proxyId);
 		return proxy ? `${proxy.name} (${providerLabel(proxy.provider)})` : '请选择 Proxy';
 	}
 </script>
@@ -78,7 +78,7 @@
 				<Input
 					id="asgn-name"
 					placeholder="例如：聊天功能 - Kimi"
-					bind:value={aiProxyStore.assignmentForm.name}
+					bind:value={aiProxyAssignmentsStore.assignmentForm.name}
 				/>
 			</div>
 			<div class="grid gap-2">
@@ -86,7 +86,7 @@
 				<Input
 					id="asgn-desc"
 					placeholder="可选描述说明"
-					bind:value={aiProxyStore.assignmentForm.description}
+					bind:value={aiProxyAssignmentsStore.assignmentForm.description}
 				/>
 			</div>
 			<div class="grid gap-2">
@@ -94,21 +94,21 @@
 				<Input
 					id="asgn-feature"
 					placeholder="例如：chat, image_generation"
-					bind:value={aiProxyStore.assignmentForm.featureKey}
+					bind:value={aiProxyAssignmentsStore.assignmentForm.featureKey}
 				/>
 			</div>
 			<div class="grid gap-2">
 				<Label>Proxy *</Label>
-				<Select.Root type="single" bind:value={aiProxyStore.assignmentForm.proxyId}>
+				<Select.Root type="single" bind:value={aiProxyAssignmentsStore.assignmentForm.proxyId}>
 					<Select.Trigger class="w-full">
-						{#if aiProxyStore.assignmentForm.proxyId}
+						{#if aiProxyAssignmentsStore.assignmentForm.proxyId}
 							{getSelectedProxyLabel()}
 						{:else}
 							请选择 Proxy
 						{/if}
 					</Select.Trigger>
 					<Select.Content>
-						{#each aiProxyStore.proxies.items as proxy}
+						{#each aiProxyProxiesStore.proxies.items as proxy}
 							<Select.Item value={proxy.id} label="{proxy.name} ({providerLabel(proxy.provider)})" />
 						{/each}
 					</Select.Content>
@@ -119,7 +119,7 @@
 				<Input
 					id="asgn-default-model"
 					placeholder="gpt-4o"
-					bind:value={aiProxyStore.assignmentForm.defaultModel}
+					bind:value={aiProxyAssignmentsStore.assignmentForm.defaultModel}
 				/>
 			</div>
 			<div class="grid gap-2">
@@ -127,9 +127,9 @@
 				<Input
 					id="asgn-models"
 					placeholder="gpt-4o, gpt-4o-mini"
-					bind:value={aiProxyStore.assignmentForm.models}
+					bind:value={aiProxyAssignmentsStore.assignmentForm.models}
 				/>
-				{#if aiProxyStore.assignmentForm.proxyId}
+				{#if aiProxyAssignmentsStore.assignmentForm.proxyId}
 					{@const proxyModels = getSelectedProxyModels()}
 					{#if proxyModels.length > 0}
 						<div class="rounded-md border p-2">
@@ -156,7 +156,7 @@
 											title="设为默认模型"
 											onclick={() => setAsDefaultModel(model)}
 										>
-											{aiProxyStore.assignmentForm.defaultModel === model ? '★' : '☆'}
+											{aiProxyAssignmentsStore.assignmentForm.defaultModel === model ? '★' : '☆'}
 										</Button>
 									</div>
 								{/each}
@@ -171,15 +171,15 @@
 			</div>
 			<div class="flex items-center gap-2">
 				<label class="flex items-center gap-2 text-sm">
-					<Checkbox bind:checked={aiProxyStore.assignmentForm.isActive} />
+					<Checkbox bind:checked={aiProxyAssignmentsStore.assignmentForm.isActive} />
 					启用
 				</label>
 			</div>
 		</div>
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (open = false)}>取消</Button>
-			<Button onclick={handleSubmit} disabled={aiProxyStore.savingAssignment}>
-				{#if aiProxyStore.savingAssignment}
+			<Button onclick={handleSubmit} disabled={aiProxyAssignmentsStore.savingAssignment}>
+				{#if aiProxyAssignmentsStore.savingAssignment}
 					<Loader2 class="mr-1.5 h-4 w-4 animate-spin" />
 				{/if}
 				{isEdit ? '保存' : '创建'}

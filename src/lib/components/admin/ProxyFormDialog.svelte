@@ -6,7 +6,7 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Checkbox } from '$lib/components/ui/checkbox';
 	import { Loader2, RefreshCw, Zap, Check, X } from '@lucide/svelte';
-	import { aiProxyStore } from '$lib/stores/ai-proxy';
+	import { aiProxyProxiesStore } from '$lib/stores/ai-proxy';
 
 	let { mode, open = $bindable() }: { mode: 'create' | 'edit'; open: boolean } = $props();
 
@@ -21,32 +21,32 @@
 	}
 
 	function isModelSelected(model: string): boolean {
-		return parseModels(aiProxyStore.proxyForm.models).includes(model);
+		return parseModels(aiProxyProxiesStore.proxyForm.models).includes(model);
 	}
 
 	function toggleModel(model: string) {
-		const current = parseModels(aiProxyStore.proxyForm.models);
+		const current = parseModels(aiProxyProxiesStore.proxyForm.models);
 		if (current.includes(model)) {
-			aiProxyStore.proxyForm.models = current.filter((m) => m !== model).join(', ');
+			aiProxyProxiesStore.proxyForm.models = current.filter((m) => m !== model).join(', ');
 		} else {
-			aiProxyStore.proxyForm.models = [...current, model].join(', ');
+			aiProxyProxiesStore.proxyForm.models = [...current, model].join(', ');
 		}
 	}
 
 	function toggleAllModels() {
-		const current = parseModels(aiProxyStore.proxyForm.models);
-		if (current.length === aiProxyStore.availableModels.length) {
-			aiProxyStore.proxyForm.models = '';
+		const current = parseModels(aiProxyProxiesStore.proxyForm.models);
+		if (current.length === aiProxyProxiesStore.availableModels.length) {
+			aiProxyProxiesStore.proxyForm.models = '';
 		} else {
-			aiProxyStore.proxyForm.models = aiProxyStore.availableModels.join(', ');
+			aiProxyProxiesStore.proxyForm.models = aiProxyProxiesStore.availableModels.join(', ');
 		}
 	}
 
 	function handleSubmit() {
 		if (isEdit) {
-			aiProxyStore.updateProxy();
+			aiProxyProxiesStore.updateProxy();
 		} else {
-			aiProxyStore.createProxy();
+			aiProxyProxiesStore.createProxy();
 		}
 	}
 </script>
@@ -60,17 +60,17 @@
 		<div class="grid gap-4 py-4">
 			<div class="grid gap-2">
 				<Label for="proxy-name">名称 *</Label>
-				<Input id="proxy-name" placeholder="例如：OpenAI 官方" bind:value={aiProxyStore.proxyForm.name} />
+				<Input id="proxy-name" placeholder="例如：OpenAI 官方" bind:value={aiProxyProxiesStore.proxyForm.name} />
 			</div>
 			<div class="grid gap-2">
 				<Label>Provider *</Label>
-				<Select.Root type="single" bind:value={aiProxyStore.proxyForm.provider}>
+				<Select.Root type="single" bind:value={aiProxyProxiesStore.proxyForm.provider}>
 					<Select.Trigger class="w-full">
-						{#if aiProxyStore.proxyForm.provider === 'openai'}
+						{#if aiProxyProxiesStore.proxyForm.provider === 'openai'}
 							OpenAI
-						{:else if aiProxyStore.proxyForm.provider === 'anthropic'}
+						{:else if aiProxyProxiesStore.proxyForm.provider === 'anthropic'}
 							Anthropic
-						{:else if aiProxyStore.proxyForm.provider === 'google'}
+						{:else if aiProxyProxiesStore.proxyForm.provider === 'google'}
 							Google
 						{:else}
 							请选择 Provider
@@ -88,7 +88,7 @@
 				<Input
 					id="proxy-baseurl"
 					placeholder="https://api.openai.com/v1"
-					bind:value={aiProxyStore.proxyForm.baseUrl}
+					bind:value={aiProxyProxiesStore.proxyForm.baseUrl}
 				/>
 			</div>
 			<div class="grid gap-2">
@@ -98,21 +98,21 @@
 						id="proxy-apikey"
 						type="password"
 						placeholder={isEdit ? '留空保持不变' : 'sk-...'}
-						bind:value={aiProxyStore.proxyForm.apiKey}
+						bind:value={aiProxyProxiesStore.proxyForm.apiKey}
 						class="flex-1"
 					/>
-					{#if !isEdit || aiProxyStore.proxyForm.apiKey}
+					{#if !isEdit || aiProxyProxiesStore.proxyForm.apiKey}
 						<Button
 							variant="outline"
 							size="icon"
 							class="shrink-0"
-							onclick={() => aiProxyStore.fetchModelsFromForm()}
-							disabled={aiProxyStore.loadingModels ||
-								!aiProxyStore.proxyForm.baseUrl ||
-								!aiProxyStore.proxyForm.apiKey}
+							onclick={() => aiProxyProxiesStore.fetchModelsFromForm()}
+							disabled={aiProxyProxiesStore.loadingModels ||
+								!aiProxyProxiesStore.proxyForm.baseUrl ||
+								!aiProxyProxiesStore.proxyForm.apiKey}
 							title="获取模型列表"
 						>
-							{#if aiProxyStore.loadingModels}
+							{#if aiProxyProxiesStore.loadingModels}
 								<Loader2 class="h-4 w-4 animate-spin" />
 							{:else}
 								<RefreshCw class="h-4 w-4" />
@@ -126,30 +126,30 @@
 				<Input
 					id="proxy-models"
 					placeholder="gpt-4o, gpt-4o-mini, o1"
-					bind:value={aiProxyStore.proxyForm.models}
+					bind:value={aiProxyProxiesStore.proxyForm.models}
 				/>
-				{#if isEdit && !aiProxyStore.proxyForm.apiKey}
+				{#if isEdit && !aiProxyProxiesStore.proxyForm.apiKey}
 					<p class="text-xs text-muted-foreground">填写 API Key 后可获取模型列表</p>
 				{/if}
-				{#if aiProxyStore.availableModels.length > 0}
+				{#if aiProxyProxiesStore.availableModels.length > 0}
 					<div class="rounded-md border p-2">
 						<div class="flex items-center justify-between mb-2">
 							<span class="text-xs font-medium text-muted-foreground">
 								快捷选择模型
 								<span class="text-muted-foreground/60"
-									>({aiProxyStore.availableModels.length})</span
+									>({aiProxyProxiesStore.availableModels.length})</span
 								>
 							</span>
 							<Button variant="link" size="sm" class="h-auto p-0 text-xs" onclick={toggleAllModels}>
-								{parseModels(aiProxyStore.proxyForm.models).length ===
-								aiProxyStore.availableModels.length
+								{parseModels(aiProxyProxiesStore.proxyForm.models).length ===
+								aiProxyProxiesStore.availableModels.length
 									? '取消全选'
 									: '全选'}
 							</Button>
 						</div>
 						<div class="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto">
-							{#each aiProxyStore.availableModels as model}
-								{@const testStatus = aiProxyStore.modelTestStatus.get(model)}
+							{#each aiProxyProxiesStore.availableModels as model}
+								{@const testStatus = aiProxyProxiesStore.modelTestStatus.get(model)}
 								<div class="inline-flex items-center gap-0.5">
 									<Button
 										variant={isModelSelected(model) ? 'default' : 'secondary'}
@@ -173,7 +173,7 @@
 												? '不可用'
 												: '测试模型'}
 										disabled={testStatus === 'testing'}
-										onclick={() => aiProxyStore.testModel(model)}
+										onclick={() => aiProxyProxiesStore.testModel(model)}
 									>
 										{#if testStatus === 'testing'}
 											<Loader2 class="h-3 w-3 animate-spin" />
@@ -197,12 +197,12 @@
 					<Input
 						id="proxy-priority"
 						type="number"
-						bind:value={aiProxyStore.proxyForm.priority}
+						bind:value={aiProxyProxiesStore.proxyForm.priority}
 					/>
 				</div>
 				<div class="flex items-end gap-2">
 					<label class="flex items-center gap-2 text-sm">
-						<Checkbox bind:checked={aiProxyStore.proxyForm.isActive} />
+						<Checkbox bind:checked={aiProxyProxiesStore.proxyForm.isActive} />
 						启用
 					</label>
 				</div>
@@ -210,8 +210,8 @@
 		</div>
 		<Dialog.Footer>
 			<Button variant="outline" onclick={() => (open = false)}>取消</Button>
-			<Button onclick={handleSubmit} disabled={aiProxyStore.savingProxy}>
-				{#if aiProxyStore.savingProxy}
+			<Button onclick={handleSubmit} disabled={aiProxyProxiesStore.savingProxy}>
+				{#if aiProxyProxiesStore.savingProxy}
 					<Loader2 class="mr-1.5 h-4 w-4 animate-spin" />
 				{/if}
 				{isEdit ? '保存' : '创建'}
