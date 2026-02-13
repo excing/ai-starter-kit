@@ -42,3 +42,19 @@ export const HEALTH_STATUS = {
 	/** 不健康 */
 	UNHEALTHY: 'unhealthy',
 } as const;
+
+// ─── 积分 ────────────────────────────────────────────────────
+
+export const CREDITS = {
+	/** 低余额警告阈值 */
+	LOW_BALANCE_WARNING: 10,
+} as const;
+
+// ─── UI ──────────────────────────────────────────────────────
+
+export const UI = {
+	/** 聊天页面自动滚动距底部阈值 (px) */
+	CHAT_SCROLL_THRESHOLD: 100,
+	/** 输入框最大高度 (px) */
+	TEXTAREA_MAX_HEIGHT: 200,
+} as const;
