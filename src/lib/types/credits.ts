@@ -5,6 +5,7 @@ export interface CreditPackage {
     price: number;
     description: string | null;
     isActive: boolean;
+    isVisible: boolean;
     createdAt: string;
     updatedAt: string;
 }

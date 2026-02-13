@@ -14,8 +14,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
         return json({ error: '无效的请求格式' }, { status: 400 });
     }
 
-    const { name, credits, price, description, isActive } = body as {
-        name?: string; credits?: number; price?: number; description?: string; isActive?: boolean;
+    const { name, credits, price, description, isActive, isVisible } = body as {
+        name?: string; credits?: number; price?: number; description?: string; isActive?: boolean; isVisible?: boolean;
     };
 
     const update: Record<string, unknown> = {};
@@ -39,6 +39,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
     }
     if (description !== undefined) update.description = description?.trim() ?? null;
     if (isActive !== undefined) update.isActive = isActive;
+    if (isVisible !== undefined) update.isVisible = isVisible;
 
     const pkg = await updatePackage(params.id!, update);
     if (!pkg) return json({ error: '套餐不存在' }, { status: 404 });

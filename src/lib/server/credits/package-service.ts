@@ -16,6 +16,7 @@ export interface UpdatePackageInput {
     price?: number;
     description?: string | null;
     isActive?: boolean;
+    isVisible?: boolean;
 }
 
 export async function createPackage(input: CreatePackageInput) {

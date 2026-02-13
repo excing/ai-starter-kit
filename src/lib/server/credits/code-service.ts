@@ -138,3 +138,11 @@ export async function getCodeById(id: string) {
         .where(eq(redemptionCode.id, id));
     return row ?? null;
 }
+
+export async function updateCodeActive(id: string, isActive: boolean) {
+    const [row] = await db.update(redemptionCode)
+        .set({ isActive })
+        .where(eq(redemptionCode.id, id))
+        .returning();
+    return row ?? null;
+}

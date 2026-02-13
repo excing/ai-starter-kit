@@ -10,7 +10,7 @@
     import { Separator } from "$lib/components/ui/separator";
     import { Skeleton } from "$lib/components/ui/skeleton";
     import {
-        Ticket, Plus, Copy, Check, Loader2, Eye, Undo2,
+        Ticket, Plus, Copy, Check, Loader2, Eye, Undo2, Ban,
     } from "lucide-svelte";
     import { toast } from "svelte-sonner";
     import { PAGINATION } from "$lib/config/constants";
@@ -50,6 +50,7 @@
 
     // Clipboard state
     let copiedId = $state<string | null>(null);
+    let deactivating = $state<string | null>(null);
 
     async function loadPackages() {
         try {
@@ -208,6 +209,28 @@
             toast.error("网络错误，请重试");
         } finally {
             refunding = null;
+        }
+    }
+
+    async function handleDeactivateCode(code: RedemptionCode) {
+        deactivating = code.id;
+        try {
+            const res = await fetch(`/api/admin/codes/${code.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ isActive: false }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                toast.error(data.error || "停用失败");
+                return;
+            }
+            codes = codes.map(c => c.id === code.id ? { ...c, isActive: false } : c);
+            toast.success("兑换码已停用");
+        } catch {
+            toast.error("网络错误，请重试");
+        } finally {
+            deactivating = null;
         }
     }
 
@@ -383,14 +406,31 @@
                                             {code.expiresAt ? formatDateShort(code.expiresAt) : "永不过期"}
                                         </Table.Cell>
                                         <Table.Cell class="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                onclick={() => openRedemptions(code)}
-                                            >
-                                                <Eye class="mr-1 h-4 w-4" />
-                                                兑换记录
-                                            </Button>
+                                            <div class="flex items-center justify-end gap-1">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onclick={() => openRedemptions(code)}
+                                                >
+                                                    <Eye class="mr-1 h-4 w-4" />
+                                                    兑换记录
+                                                </Button>
+                                                {#if status.label === "有效"}
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        disabled={deactivating === code.id}
+                                                        onclick={() => handleDeactivateCode(code)}
+                                                    >
+                                                        {#if deactivating === code.id}
+                                                            <Loader2 class="mr-1 h-4 w-4 animate-spin" />
+                                                        {:else}
+                                                            <Ban class="mr-1 h-4 w-4" />
+                                                        {/if}
+                                                        停用
+                                                    </Button>
+                                                {/if}
+                                            </div>
                                         </Table.Cell>
                                     </Table.Row>
                                 {/each}

@@ -83,6 +83,7 @@ export const creditPackage = pgTable('credit_package', {
     price: integer('price').notNull().default(0),
     description: text('description'),
     isActive: boolean('is_active').notNull().default(true),
+    isVisible: boolean('is_visible').notNull().default(true),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
 });

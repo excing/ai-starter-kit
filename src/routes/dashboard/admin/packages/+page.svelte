@@ -8,7 +8,7 @@
     import { Badge } from "$lib/components/ui/badge";
     import { Textarea } from "$lib/components/ui/textarea";
     import { Skeleton } from "$lib/components/ui/skeleton";
-    import { Package, Plus, Pencil, Loader2 } from "lucide-svelte";
+    import { Package, Plus, Pencil, Loader2, Eye, EyeOff } from "lucide-svelte";
     import { toast } from "svelte-sonner";
     import { PAGINATION } from "$lib/config/constants";
     import Pagination from "$lib/components/common/Pagination.svelte";
@@ -130,25 +130,33 @@
         }
     }
 
-    async function toggleActive(pkg: CreditPackage) {
-        const newActive = !pkg.isActive;
+    async function toggleField(pkg: CreditPackage, field: "isActive" | "isVisible") {
+        const newValue = field === "isActive" ? !pkg.isActive : !pkg.isVisible;
         try {
             const res = await fetch(`/api/admin/packages/${pkg.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ isActive: newActive }),
+                body: JSON.stringify({ [field]: newValue }),
             });
             const data = await res.json();
             if (!res.ok) {
                 toast.error(data.error || "操作失败");
                 return;
             }
-            // 成功后用服务器数据更新本地列表
             packages = packages.map(p => p.id === pkg.id ? data.package : p);
-            toast.success(newActive ? "套餐已启用" : "套餐已停用");
+            if (field === "isActive") {
+                toast.success(newValue ? "套餐已启用" : "套餐已停用");
+            } else {
+                toast.success(newValue ? "套餐已对用户可见" : "套餐已对用户隐藏");
+            }
         } catch {
             toast.error("网络错误，请重试");
         }
+    }
+
+    function formatPrice(price: number): string {
+        if (price === 0) return "免费";
+        return `¥${(price / 100).toFixed(2)}`;
     }
 
     function formatDate(dateStr: string): string {
@@ -215,6 +223,7 @@
                                 <Table.Head>价格</Table.Head>
                                 <Table.Head class="hidden md:table-cell">描述</Table.Head>
                                 <Table.Head>状态</Table.Head>
+                                <Table.Head>可见</Table.Head>
                                 <Table.Head class="hidden sm:table-cell">创建时间</Table.Head>
                                 <Table.Head class="text-right">操作</Table.Head>
                             </Table.Row>
@@ -224,7 +233,7 @@
                                 <Table.Row class={pkg.isActive ? "" : "opacity-60"}>
                                     <Table.Cell class="font-medium">{pkg.name}</Table.Cell>
                                     <Table.Cell>{pkg.credits.toLocaleString()}</Table.Cell>
-                                    <Table.Cell>¥{(pkg.price / 100).toFixed(2)}</Table.Cell>
+                                    <Table.Cell>{formatPrice(pkg.price)}</Table.Cell>
                                     <Table.Cell class="text-muted-foreground hidden max-w-48 truncate md:table-cell">
                                         {pkg.description ?? "-"}
                                     </Table.Cell>
@@ -234,6 +243,20 @@
                                         {:else}
                                             <Badge variant="secondary">停用</Badge>
                                         {/if}
+                                    </Table.Cell>
+                                    <Table.Cell>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            class="h-7 w-7 p-0"
+                                            onclick={() => toggleField(pkg, "isVisible")}
+                                        >
+                                            {#if pkg.isVisible}
+                                                <Eye class="h-4 w-4 text-green-500" />
+                                            {:else}
+                                                <EyeOff class="h-4 w-4 text-muted-foreground" />
+                                            {/if}
+                                        </Button>
                                     </Table.Cell>
                                     <Table.Cell class="text-muted-foreground hidden text-sm sm:table-cell">
                                         {formatDate(pkg.createdAt)}
@@ -246,7 +269,7 @@
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                onclick={() => toggleActive(pkg)}
+                                                onclick={() => toggleField(pkg, "isActive")}
                                             >
                                                 {pkg.isActive ? "停用" : "启用"}
                                             </Button>
