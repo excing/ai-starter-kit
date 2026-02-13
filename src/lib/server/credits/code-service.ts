@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { redemptionCode, creditPackage } from '$lib/server/db/schema';
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, count as countFn } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -39,7 +39,10 @@ export async function createCodes(input: CreateCodesInput, createdBy: string) {
     return db.insert(redemptionCode).values(values).returning();
 }
 
-export async function listCodes(filters?: { packageId?: string; isActive?: boolean }) {
+export async function listCodes(
+    filters?: { packageId?: string; isActive?: boolean },
+    pagination?: { limit: number; offset: number },
+) {
     const conditions = [];
     if (filters?.packageId) {
         conditions.push(eq(redemptionCode.packageId, filters.packageId));
@@ -48,7 +51,37 @@ export async function listCodes(filters?: { packageId?: string; isActive?: boole
         conditions.push(eq(redemptionCode.isActive, filters.isActive));
     }
 
-    const query = db.select({
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    if (pagination) {
+        const { limit, offset } = pagination;
+        const [{ total }] = await db
+            .select({ total: countFn() })
+            .from(redemptionCode)
+            .where(whereClause);
+        const items = await db.select({
+            id: redemptionCode.id,
+            code: redemptionCode.code,
+            packageId: redemptionCode.packageId,
+            expiresAt: redemptionCode.expiresAt,
+            maxRedemptions: redemptionCode.maxRedemptions,
+            currentRedemptions: redemptionCode.currentRedemptions,
+            isActive: redemptionCode.isActive,
+            createdBy: redemptionCode.createdBy,
+            createdAt: redemptionCode.createdAt,
+            packageName: creditPackage.name,
+            packageCredits: creditPackage.credits,
+        })
+        .from(redemptionCode)
+        .leftJoin(creditPackage, eq(redemptionCode.packageId, creditPackage.id))
+        .where(whereClause)
+        .orderBy(desc(redemptionCode.createdAt))
+        .limit(limit)
+        .offset(offset);
+        return { items, total };
+    }
+
+    const items = await db.select({
         id: redemptionCode.id,
         code: redemptionCode.code,
         packageId: redemptionCode.packageId,
@@ -63,12 +96,9 @@ export async function listCodes(filters?: { packageId?: string; isActive?: boole
     })
     .from(redemptionCode)
     .leftJoin(creditPackage, eq(redemptionCode.packageId, creditPackage.id))
+    .where(whereClause)
     .orderBy(desc(redemptionCode.createdAt));
-
-    if (conditions.length > 0) {
-        return query.where(and(...conditions));
-    }
-    return query;
+    return { items, total: items.length };
 }
 
 export async function getCodeByString(codeStr: string) {

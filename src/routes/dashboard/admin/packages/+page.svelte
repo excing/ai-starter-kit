@@ -10,10 +10,15 @@
     import { Skeleton } from "$lib/components/ui/skeleton";
     import { Package, Plus, Pencil, Loader2 } from "lucide-svelte";
     import { toast } from "svelte-sonner";
+    import { PAGINATION } from "$lib/config/constants";
+    import Pagination from "$lib/components/common/Pagination.svelte";
     import type { CreditPackage } from "$lib/types/credits";
 
     let packages = $state<CreditPackage[]>([]);
     let loading = $state(true);
+    let total = $state(0);
+    let page = $state(1);
+    const limit = PAGINATION.DEFAULT_LIMIT;
 
     // Dialog state
     let dialogOpen = $state(false);
@@ -27,10 +32,12 @@
     async function loadPackages() {
         loading = true;
         try {
-            const res = await fetch("/api/admin/packages");
+            const offset = (page - 1) * limit;
+            const res = await fetch(`/api/admin/packages?limit=${limit}&offset=${offset}`);
             if (res.ok) {
                 const data = await res.json();
                 packages = data.packages;
+                total = data.total;
             }
         } catch {
             toast.error("加载套餐列表失败");
@@ -73,44 +80,49 @@
             return;
         }
         submitting = true;
+
+        const payload = {
+            name: formName.trim(),
+            credits,
+            price,
+            description: formDescription.trim() || null,
+        };
+
         try {
             if (editing) {
                 const res = await fetch(`/api/admin/packages/${editing.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        name: formName.trim(),
-                        credits,
-                        price,
-                        description: formDescription.trim() || null,
-                    }),
+                    body: JSON.stringify(payload),
                 });
                 const data = await res.json();
                 if (!res.ok) {
                     toast.error(data.error || "更新失败");
                     return;
                 }
+                // 成功后用服务器数据更新本地列表
+                packages = packages.map(p => p.id === editing!.id ? data.package : p);
                 toast.success("套餐已更新");
             } else {
                 const res = await fetch("/api/admin/packages", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        name: formName.trim(),
-                        credits,
-                        price,
-                        description: formDescription.trim() || undefined,
-                    }),
+                    body: JSON.stringify(payload),
                 });
                 const data = await res.json();
                 if (!res.ok) {
                     toast.error(data.error || "创建失败");
                     return;
                 }
+                // 成功后跳转到第一页并重新加载
+                if (page === 1) {
+                    await loadPackages();
+                } else {
+                    page = 1;
+                }
                 toast.success("套餐已创建");
             }
             dialogOpen = false;
-            await loadPackages();
         } catch {
             toast.error("网络错误，请重试");
         } finally {
@@ -119,19 +131,21 @@
     }
 
     async function toggleActive(pkg: CreditPackage) {
+        const newActive = !pkg.isActive;
         try {
             const res = await fetch(`/api/admin/packages/${pkg.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ isActive: !pkg.isActive }),
+                body: JSON.stringify({ isActive: newActive }),
             });
             const data = await res.json();
             if (!res.ok) {
                 toast.error(data.error || "操作失败");
                 return;
             }
-            toast.success(pkg.isActive ? "套餐已停用" : "套餐已启用");
-            await loadPackages();
+            // 成功后用服务器数据更新本地列表
+            packages = packages.map(p => p.id === pkg.id ? data.package : p);
+            toast.success(newActive ? "套餐已启用" : "套餐已停用");
         } catch {
             toast.error("网络错误，请重试");
         }
@@ -146,6 +160,7 @@
     }
 
     $effect(() => {
+        page;
         loadPackages();
     });
 </script>
@@ -241,6 +256,14 @@
                             {/each}
                         </Table.Body>
                     </Table.Root>
+                {#if total > limit}
+                    <Pagination
+                        count={total}
+                        perPage={limit}
+                        bind:page
+                        class="mt-4"
+                    />
+                {/if}
             {/if}
         </Card.Content>
     </Card.Root>

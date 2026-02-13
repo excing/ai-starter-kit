@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { creditPackage } from '$lib/server/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, count as countFn } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 export interface CreatePackageInput {
@@ -30,13 +30,30 @@ export async function createPackage(input: CreatePackageInput) {
     return pkg;
 }
 
-export async function listPackages(includeInactive = false) {
-    if (includeInactive) {
-        return db.select().from(creditPackage).orderBy(desc(creditPackage.createdAt));
+export async function listPackages(
+    includeInactive = false,
+    pagination?: { limit: number; offset: number },
+) {
+    const condition = includeInactive ? undefined : eq(creditPackage.isActive, true);
+
+    if (pagination) {
+        const { limit, offset } = pagination;
+        const [{ total }] = await db
+            .select({ total: countFn() })
+            .from(creditPackage)
+            .where(condition);
+        const items = await db.select().from(creditPackage)
+            .where(condition)
+            .orderBy(desc(creditPackage.createdAt))
+            .limit(limit)
+            .offset(offset);
+        return { items, total };
     }
-    return db.select().from(creditPackage)
-        .where(eq(creditPackage.isActive, true))
+
+    const items = await db.select().from(creditPackage)
+        .where(condition)
         .orderBy(desc(creditPackage.createdAt));
+    return { items, total: items.length };
 }
 
 export async function getPackageById(id: string) {

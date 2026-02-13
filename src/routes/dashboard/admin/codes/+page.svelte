@@ -13,6 +13,8 @@
         Ticket, Plus, Copy, Check, Loader2, Eye, Undo2,
     } from "lucide-svelte";
     import { toast } from "svelte-sonner";
+    import { PAGINATION } from "$lib/config/constants";
+    import Pagination from "$lib/components/common/Pagination.svelte";
     import type {
         CreditPackage,
         RedemptionCodeWithPackage,
@@ -23,6 +25,9 @@
     let codes = $state<RedemptionCodeWithPackage[]>([]);
     let packages = $state<CreditPackage[]>([]);
     let loading = $state(true);
+    let total = $state(0);
+    let page = $state(1);
+    const limit = PAGINATION.DEFAULT_LIMIT;
 
     // Filters
     let filterPackageId = $state<string>("");
@@ -69,13 +74,17 @@
     async function loadCodes() {
         loading = true;
         try {
+            const offset = (page - 1) * limit;
             const params = new URLSearchParams();
+            params.set("limit", String(limit));
+            params.set("offset", String(offset));
             if (filterPackageId) params.set("packageId", filterPackageId);
             if (filterStatus) params.set("isActive", filterStatus);
             const res = await fetch(`/api/admin/codes?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();
                 codes = data.codes;
+                total = data.total;
             }
         } catch {
             toast.error("加载兑换码列表失败");
@@ -123,9 +132,15 @@
                 toast.error(data.error || "生成失败");
                 return;
             }
-            toast.success(`成功生成 ${data.codes.length} 个兑换码`);
+            // 成功后跳转到第一页并重新加载
+            const newCount = data.codes.length;
+            if (page === 1) {
+                await loadCodes();
+            } else {
+                page = 1;
+            }
+            toast.success(`成功生成 ${newCount} 个兑换码`);
             generateOpen = false;
-            await loadCodes();
         } catch {
             toast.error("网络错误，请重试");
         } finally {
@@ -177,12 +192,18 @@
                 toast.error(data.error || "退款失败");
                 return;
             }
-            toast.success(`退款成功，扣除 ${data.creditsDeducted} 积分`);
-            // Refresh redemptions list
+            // 成功后更新本地状态
+            redemptions = redemptions.map(r =>
+                r.id === transactionId ? { ...r, refunded: true } : r
+            );
             if (redemptionsCode) {
-                await openRedemptions(redemptionsCode);
+                codes = codes.map(c =>
+                    c.id === redemptionsCode!.id
+                        ? { ...c, currentRedemptions: Math.max(0, c.currentRedemptions - 1) }
+                        : c
+                );
             }
-            await loadCodes();
+            toast.success(`退款成功，扣除 ${data.creditsDeducted} 积分`);
         } catch {
             toast.error("网络错误，请重试");
         } finally {
@@ -227,12 +248,12 @@
 
     $effect(() => {
         loadPackages();
-        loadCodes();
     });
 
-    // Re-load codes when filters change
+    // Re-load codes when page or filters change
     $effect(() => {
         // Access reactive values to track them
+        page;
         filterPackageId;
         filterStatus;
         loadCodes();
@@ -266,7 +287,7 @@
         <Card.Content>
             <!-- 筛选器 -->
             <div class="mb-4 flex flex-wrap items-center gap-3">
-                <Select.Root type="single" bind:value={filterPackageId}>
+                <Select.Root type="single" bind:value={filterPackageId} onValueChange={() => { page = 1; }}>
                     <Select.Trigger class="w-48">
                         {filterPackageId
                             ? packages.find(p => p.id === filterPackageId)?.name ?? "全部套餐"
@@ -279,7 +300,7 @@
                         {/each}
                     </Select.Content>
                 </Select.Root>
-                <Select.Root type="single" bind:value={filterStatus}>
+                <Select.Root type="single" bind:value={filterStatus} onValueChange={() => { page = 1; }}>
                     <Select.Trigger class="w-36">
                         {filterStatus === "true" ? "启用" : filterStatus === "false" ? "停用" : "全部状态"}
                     </Select.Trigger>
@@ -370,6 +391,14 @@
                             </Table.Body>
                         </Table.Root>
                     </div>
+                {#if total > limit}
+                    <Pagination
+                        count={total}
+                        perPage={limit}
+                        bind:page
+                        class="mt-4"
+                    />
+                {/if}
             {/if}
         </Card.Content>
     </Card.Root>

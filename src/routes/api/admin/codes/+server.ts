@@ -2,6 +2,7 @@ import { json, type RequestHandler } from '@sveltejs/kit';
 import { guardAdmin } from '$lib/server/credits/admin';
 import { createCodes, listCodes } from '$lib/server/credits/code-service';
 import { getPackageById } from '$lib/server/credits/package-service';
+import { parsePagination } from '$lib/config/constants';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
     if (!locals.session?.user) return json({ error: '请先登录' }, { status: 401 });
@@ -10,12 +11,16 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 
     const packageId = url.searchParams.get('packageId') ?? undefined;
     const isActiveParam = url.searchParams.get('isActive');
+    const { limit, offset } = parsePagination(url);
 
-    const codes = await listCodes({
-        packageId,
-        isActive: isActiveParam !== null ? isActiveParam === 'true' : undefined,
-    });
-    return json({ codes });
+    const { items, total } = await listCodes(
+        {
+            packageId,
+            isActive: isActiveParam !== null ? isActiveParam === 'true' : undefined,
+        },
+        { limit, offset },
+    );
+    return json({ codes: items, total, limit, offset });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
