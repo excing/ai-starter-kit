@@ -6,6 +6,7 @@ import { toast } from 'svelte-sonner';
 import { PaginatedState } from '../pagination.svelte';
 import { fetchModelList, testModelChat } from './model-testing';
 import { aiProxyAssignmentsStore } from './assignments.svelte';
+import { aiProxyKeyManagementStore } from './key-management.svelte';
 import type { AiProxyItem, ProxyFormData } from '$lib/types/admin';
 import { AI_PROVIDER, HEALTH_STATUS } from '$lib/config/constants';
 
@@ -299,7 +300,7 @@ class AiProxyProxiesStore {
 			name: proxy.name,
 			provider: proxy.provider,
 			baseUrl: proxy.baseUrl,
-			apiKey: '',
+			apiKey: aiProxyKeyManagementStore.getRevealedKey(proxy.id) ?? '',
 			models: proxy.models.join(', '),
 			priority: proxy.priority,
 			isActive: proxy.isActive

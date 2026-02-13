@@ -3,6 +3,7 @@
 	import * as Card from '$lib/components/ui/card';
 	import * as Table from '$lib/components/ui/table';
 	import * as Tabs from '$lib/components/ui/tabs';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 	import { Skeleton } from '$lib/components/ui/skeleton';
@@ -14,12 +15,21 @@
 		Server,
 		Link,
 		RefreshCw,
+		Eye,
+		EyeOff,
+		Copy,
+		Check,
+		EllipsisVertical,
+		Download,
+		Upload,
 	} from '@lucide/svelte';
-	import { aiProxyProxiesStore, aiProxyAssignmentsStore } from '$lib/stores/ai-proxy';
+	import { aiProxyProxiesStore, aiProxyAssignmentsStore, aiProxyKeyManagementStore } from '$lib/stores/ai-proxy';
 	import { AiProxyDialogs } from '$lib/components/admin';
+	import PasswordConfirmDialog from '$lib/components/admin/PasswordConfirmDialog.svelte';
 	import Pagination from '$lib/components/common/Pagination.svelte';
 
 	let activeTab = $state<'proxies' | 'assignments'>('proxies');
+	let importFileInput = $state<HTMLInputElement | null>(null);
 
 	onMount(() => {
 		Promise.all([
@@ -39,6 +49,18 @@
 
 	function handleTabChange(value: string) {
 		activeTab = value as 'proxies' | 'assignments';
+	}
+
+	function triggerImportFile() {
+		importFileInput?.click();
+	}
+
+	function onImportFileChange(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		input.value = '';
+		aiProxyKeyManagementStore.handleImport(file);
 	}
 </script>
 
@@ -70,6 +92,29 @@
 				<Plus class="mr-1.5 h-4 w-4 sm:mr-2" />
 				添加 Proxy
 			</Button>
+			<DropdownMenu.Root>
+				<DropdownMenu.Trigger>
+					{#snippet child({ props })}
+						<Button variant="outline" size="sm" class="sm:size-default" {...props}>
+							{#if aiProxyKeyManagementStore.exporting || aiProxyKeyManagementStore.importing}
+								<Loader2 class="h-4 w-4 animate-spin" />
+							{:else}
+								<EllipsisVertical class="h-4 w-4" />
+							{/if}
+						</Button>
+					{/snippet}
+				</DropdownMenu.Trigger>
+				<DropdownMenu.Content align="end">
+					<DropdownMenu.Item onclick={() => aiProxyKeyManagementStore.handleExport()} disabled={aiProxyKeyManagementStore.exporting || aiProxyKeyManagementStore.importing}>
+						<Download class="mr-2 h-4 w-4" />
+						导出配置
+					</DropdownMenu.Item>
+					<DropdownMenu.Item onclick={triggerImportFile} disabled={aiProxyKeyManagementStore.exporting || aiProxyKeyManagementStore.importing}>
+						<Upload class="mr-2 h-4 w-4" />
+						导入配置
+					</DropdownMenu.Item>
+				</DropdownMenu.Content>
+			</DropdownMenu.Root>
 		</div>
 	</div>
 
@@ -153,6 +198,7 @@
 										<Table.Head>名称</Table.Head>
 										<Table.Head>Provider</Table.Head>
 										<Table.Head>Base URL</Table.Head>
+										<Table.Head>API Key</Table.Head>
 										<Table.Head>模型数</Table.Head>
 										<Table.Head>优先级</Table.Head>
 										<Table.Head>健康状态</Table.Head>
@@ -170,6 +216,47 @@
 											</Table.Cell>
 											<Table.Cell class="max-w-[200px] truncate text-xs text-muted-foreground" title={proxy.baseUrl}>
 												{proxy.baseUrl}
+											</Table.Cell>
+											<Table.Cell>
+												<div class="flex items-center gap-1">
+													{#if aiProxyKeyManagementStore.revealedKeys.has(proxy.id)}
+														<code class="text-xs font-mono max-w-[140px] truncate inline-block align-middle" title={aiProxyKeyManagementStore.revealedKeys.get(proxy.id)}>
+															{aiProxyKeyManagementStore.revealedKeys.get(proxy.id)}
+														</code>
+														<button
+															onclick={() => aiProxyKeyManagementStore.copyKey(proxy.id)}
+															class="text-muted-foreground hover:text-foreground shrink-0"
+															title="复制"
+														>
+															{#if aiProxyKeyManagementStore.copiedKeyId === proxy.id}
+																<Check class="h-3 w-3 text-green-500" />
+															{:else}
+																<Copy class="h-3 w-3" />
+															{/if}
+														</button>
+														<button
+															onclick={() => aiProxyKeyManagementStore.revealApiKey(proxy.id)}
+															class="text-muted-foreground hover:text-foreground shrink-0"
+															title="隐藏"
+														>
+															<EyeOff class="h-3 w-3" />
+														</button>
+													{:else}
+														<span class="text-xs text-muted-foreground">••••••••</span>
+														<button
+															onclick={() => aiProxyKeyManagementStore.revealApiKey(proxy.id)}
+															disabled={aiProxyKeyManagementStore.revealingKeyId === proxy.id}
+															class="text-muted-foreground hover:text-foreground shrink-0"
+															title="查看 API Key"
+														>
+															{#if aiProxyKeyManagementStore.revealingKeyId === proxy.id}
+																<Loader2 class="h-3 w-3 animate-spin" />
+															{:else}
+																<Eye class="h-3 w-3" />
+															{/if}
+														</button>
+													{/if}
+												</div>
 											</Table.Cell>
 											<Table.Cell>
 												<Badge variant="secondary">{proxy.models.length}</Badge>
@@ -379,3 +466,13 @@
 
 <!-- 对话框 -->
 <AiProxyDialogs />
+<PasswordConfirmDialog bind:open={aiProxyKeyManagementStore.passwordDialogOpen} onConfirm={(pw) => aiProxyKeyManagementStore.handlePasswordConfirm(pw)} />
+
+<!-- 隐藏的文件导入 input -->
+<input
+	type="file"
+	accept=".json"
+	class="hidden"
+	bind:this={importFileInput}
+	onchange={onImportFileChange}
+/>

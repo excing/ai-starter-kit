@@ -4,6 +4,7 @@
 
 export { aiProxyProxiesStore } from './proxies.svelte';
 export { aiProxyAssignmentsStore } from './assignments.svelte';
+export { aiProxyKeyManagementStore } from './key-management.svelte';
 
 export type {
 	AiProxyItem,
