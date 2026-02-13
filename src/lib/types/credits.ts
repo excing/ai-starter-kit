@@ -13,17 +13,15 @@ export interface RedemptionCode {
     id: string;
     code: string;
     packageId: string;
+    packageName: string;
+    packageCredits: number;
+    packagePrice: number;
     expiresAt: string | null;
     maxRedemptions: number | null;
     currentRedemptions: number;
     isActive: boolean;
     createdBy: string | null;
     createdAt: string;
-}
-
-export interface RedemptionCodeWithPackage extends RedemptionCode {
-    packageName: string | null;
-    packageCredits: number | null;
 }
 
 export interface CreditTransaction {

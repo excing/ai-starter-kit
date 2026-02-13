@@ -7,7 +7,6 @@ import {
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { getCodeByString, getCodeById } from './code-service';
-import { getPackageById } from './package-service';
 
 export async function getBalance(userId: string): Promise<number> {
     const [row] = await db.select({ creditBalance: user.creditBalance })
@@ -86,12 +85,7 @@ export async function redeemCode(userId: string, codeStr: string): Promise<Redee
         return { success: false, error: '您已经使用过该兑换码' };
     }
 
-    const pkg = await getPackageById(code.packageId);
-    if (!pkg || !pkg.isActive) {
-        return { success: false, error: '该兑换码关联的套餐不可用' };
-    }
-
-    const creditsToAdd = pkg.credits;
+    const creditsToAdd = code.packageCredits;
     const txnId = randomUUID();
 
     await db.transaction(async (tx) => {
@@ -101,13 +95,13 @@ export async function redeemCode(userId: string, codeStr: string): Promise<Redee
             amount: creditsToAdd,
             type: 'redemption',
             referenceId: code.id,
-            description: `兑换码 ${code.code} 兑换 - ${pkg.name}`,
+            description: `兑换码 ${code.code} 兑换 - ${code.packageName}`,
             metadata: {
                 codeId: code.id,
                 codeString: code.code,
-                packageId: pkg.id,
-                packageName: pkg.name,
-                packageCredits: pkg.credits,
+                packageId: code.packageId,
+                packageName: code.packageName,
+                packageCredits: code.packageCredits,
             },
         });
 

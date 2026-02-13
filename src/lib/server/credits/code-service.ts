@@ -1,5 +1,5 @@
 import { db } from '$lib/server/db';
-import { redemptionCode, creditPackage } from '$lib/server/db/schema';
+import { redemptionCode } from '$lib/server/db/schema';
 import { eq, desc, and, or, gt, lte, gte, lt, isNull, isNotNull, count as countFn } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -16,6 +16,9 @@ export function generateCodeString(): string {
 
 export interface CreateCodesInput {
     packageId: string;
+    packageName: string;
+    packageCredits: number;
+    packagePrice: number;
     expiresAt: Date | null;
     maxRedemptions: number | null;
     count?: number;
@@ -29,6 +32,9 @@ export async function createCodes(input: CreateCodesInput, createdBy: string) {
             id: randomUUID(),
             code: generateCodeString(),
             packageId: input.packageId,
+            packageName: input.packageName,
+            packageCredits: input.packageCredits,
+            packagePrice: input.packagePrice,
             expiresAt: input.expiresAt,
             maxRedemptions: input.maxRedemptions,
             currentRedemptions: 0,
@@ -83,17 +89,16 @@ export async function listCodes(
             id: redemptionCode.id,
             code: redemptionCode.code,
             packageId: redemptionCode.packageId,
+            packageName: redemptionCode.packageName,
+            packageCredits: redemptionCode.packageCredits,
             expiresAt: redemptionCode.expiresAt,
             maxRedemptions: redemptionCode.maxRedemptions,
             currentRedemptions: redemptionCode.currentRedemptions,
             isActive: redemptionCode.isActive,
             createdBy: redemptionCode.createdBy,
             createdAt: redemptionCode.createdAt,
-            packageName: creditPackage.name,
-            packageCredits: creditPackage.credits,
         })
         .from(redemptionCode)
-        .leftJoin(creditPackage, eq(redemptionCode.packageId, creditPackage.id))
         .where(whereClause)
         .orderBy(desc(redemptionCode.createdAt))
         .limit(limit)
@@ -105,17 +110,16 @@ export async function listCodes(
         id: redemptionCode.id,
         code: redemptionCode.code,
         packageId: redemptionCode.packageId,
+        packageName: redemptionCode.packageName,
+        packageCredits: redemptionCode.packageCredits,
         expiresAt: redemptionCode.expiresAt,
         maxRedemptions: redemptionCode.maxRedemptions,
         currentRedemptions: redemptionCode.currentRedemptions,
         isActive: redemptionCode.isActive,
         createdBy: redemptionCode.createdBy,
         createdAt: redemptionCode.createdAt,
-        packageName: creditPackage.name,
-        packageCredits: creditPackage.credits,
     })
     .from(redemptionCode)
-    .leftJoin(creditPackage, eq(redemptionCode.packageId, creditPackage.id))
     .where(whereClause)
     .orderBy(desc(redemptionCode.createdAt));
     return { items, total: items.length };

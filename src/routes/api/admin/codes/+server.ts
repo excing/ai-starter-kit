@@ -69,6 +69,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
     const codes = await createCodes({
         packageId,
+        packageName: pkg.name,
+        packageCredits: pkg.credits,
+        packagePrice: pkg.price,
         expiresAt: resolvedExpiresAt,
         maxRedemptions: maxRedemptions ?? 1,
         count: count ?? 1,

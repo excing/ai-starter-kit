@@ -92,6 +92,9 @@ export const redemptionCode = pgTable('redemption_code', {
     code: text('code').notNull().unique(),
     packageId: text('package_id').notNull()
         .references(() => creditPackage.id, { onDelete: 'restrict' }),
+    packageName: text('package_name').notNull(),
+    packageCredits: integer('package_credits').notNull(),
+    packagePrice: integer('package_price').notNull(),
     expiresAt: timestamp('expires_at'),
     maxRedemptions: integer('max_redemptions'),
     currentRedemptions: integer('current_redemptions').notNull().default(0),

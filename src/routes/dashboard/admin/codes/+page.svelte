@@ -17,12 +17,12 @@
     import Pagination from "$lib/components/common/Pagination.svelte";
     import type {
         CreditPackage,
-        RedemptionCodeWithPackage,
+        RedemptionCode,
         RedemptionDetail,
     } from "$lib/types/credits";
 
     // List state
-    let codes = $state<RedemptionCodeWithPackage[]>([]);
+    let codes = $state<RedemptionCode[]>([]);
     let packages = $state<CreditPackage[]>([]);
     let loading = $state(true);
     let total = $state(0);
@@ -43,7 +43,7 @@
 
     // Redemptions dialog state
     let redemptionsOpen = $state(false);
-    let redemptionsCode = $state<RedemptionCodeWithPackage | null>(null);
+    let redemptionsCode = $state<RedemptionCode | null>(null);
     let redemptions = $state<RedemptionDetail[]>([]);
     let loadingRedemptions = $state(false);
     let refunding = $state<string | null>(null);
@@ -159,7 +159,7 @@
         }
     }
 
-    async function openRedemptions(code: RedemptionCodeWithPackage) {
+    async function openRedemptions(code: RedemptionCode) {
         redemptionsCode = code;
         redemptions = [];
         redemptionsOpen = true;
@@ -234,7 +234,7 @@
         return new Date(expiresAt) < new Date();
     }
 
-    function getCodeStatus(code: RedemptionCodeWithPackage): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
+    function getCodeStatus(code: RedemptionCode): { label: string; variant: "default" | "secondary" | "destructive" | "outline" } {
         if (!code.isActive) return { label: "停用", variant: "secondary" };
         if (isExpired(code.expiresAt)) return { label: "已过期", variant: "destructive" };
         if (code.maxRedemptions !== null && code.currentRedemptions >= code.maxRedemptions) {
@@ -288,7 +288,7 @@
             <!-- 筛选器 -->
             <div class="mb-4 flex flex-wrap items-center justify-end gap-3">
                 <Select.Root type="single" bind:value={filterPackageId} onValueChange={() => { page = 1; }}>
-                    <Select.Trigger class="w-48">
+                    <Select.Trigger class="w-36 sm:w-48">
                         {filterPackageId
                             ? packages.find(p => p.id === filterPackageId)?.name ?? "全部套餐"
                             : "全部套餐"}
@@ -301,7 +301,7 @@
                     </Select.Content>
                 </Select.Root>
                 <Select.Root type="single" bind:value={filterStatus} onValueChange={() => { page = 1; }}>
-                    <Select.Trigger class="w-36">
+                    <Select.Trigger class="w-27 sm:w-36">
                         {filterStatus === "valid" ? "有效"
                             : filterStatus === "expired" ? "已过期"
                             : filterStatus === "used_up" ? "已用完"
@@ -344,7 +344,7 @@
                                     <Table.Head>积分</Table.Head>
                                     <Table.Head>使用情况</Table.Head>
                                     <Table.Head>状态</Table.Head>
-                                    <Table.Head class="hidden lg:table-cell">过期时间</Table.Head>
+                                    <Table.Head>过期时间</Table.Head>
                                     <Table.Head class="text-right">操作</Table.Head>
                                 </Table.Row>
                             </Table.Header>
@@ -379,7 +379,7 @@
                                         <Table.Cell>
                                             <Badge variant={status.variant}>{status.label}</Badge>
                                         </Table.Cell>
-                                        <Table.Cell class="text-muted-foreground hidden text-sm lg:table-cell">
+                                        <Table.Cell class="text-muted-foreground text-sm">
                                             {code.expiresAt ? formatDateShort(code.expiresAt) : "永不过期"}
                                         </Table.Cell>
                                         <Table.Cell class="text-right">
