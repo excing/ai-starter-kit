@@ -31,7 +31,7 @@
 
     // Filters
     let filterPackageId = $state<string>("");
-    let filterStatus = $state<string>("");
+    let filterStatus = $state<string>("valid");
 
     // Generate dialog state
     let generateOpen = $state(false);
@@ -79,7 +79,7 @@
             params.set("limit", String(limit));
             params.set("offset", String(offset));
             if (filterPackageId) params.set("packageId", filterPackageId);
-            if (filterStatus) params.set("isActive", filterStatus);
+            if (filterStatus) params.set("status", filterStatus);
             const res = await fetch(`/api/admin/codes?${params.toString()}`);
             if (res.ok) {
                 const data = await res.json();
@@ -286,7 +286,7 @@
         </Card.Header>
         <Card.Content>
             <!-- 筛选器 -->
-            <div class="mb-4 flex flex-wrap items-center gap-3">
+            <div class="mb-4 flex flex-wrap items-center justify-end gap-3">
                 <Select.Root type="single" bind:value={filterPackageId} onValueChange={() => { page = 1; }}>
                     <Select.Trigger class="w-48">
                         {filterPackageId
@@ -302,12 +302,18 @@
                 </Select.Root>
                 <Select.Root type="single" bind:value={filterStatus} onValueChange={() => { page = 1; }}>
                     <Select.Trigger class="w-36">
-                        {filterStatus === "true" ? "启用" : filterStatus === "false" ? "停用" : "全部状态"}
+                        {filterStatus === "valid" ? "有效"
+                            : filterStatus === "expired" ? "已过期"
+                            : filterStatus === "used_up" ? "已用完"
+                            : filterStatus === "inactive" ? "停用"
+                            : "全部状态"}
                     </Select.Trigger>
                     <Select.Content>
                         <Select.Item value="">全部状态</Select.Item>
-                        <Select.Item value="true">启用</Select.Item>
-                        <Select.Item value="false">停用</Select.Item>
+                        <Select.Item value="valid">有效</Select.Item>
+                        <Select.Item value="expired">已过期</Select.Item>
+                        <Select.Item value="used_up">已用完</Select.Item>
+                        <Select.Item value="inactive">停用</Select.Item>
                     </Select.Content>
                 </Select.Root>
             </div>

@@ -1,6 +1,6 @@
 import { db } from '$lib/server/db';
 import { redemptionCode, creditPackage } from '$lib/server/db/schema';
-import { eq, desc, and, count as countFn } from 'drizzle-orm';
+import { eq, desc, and, or, gt, lte, gte, lt, isNull, isNotNull, count as countFn } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -39,16 +39,36 @@ export async function createCodes(input: CreateCodesInput, createdBy: string) {
     return db.insert(redemptionCode).values(values).returning();
 }
 
+export type CodeStatus = 'valid' | 'expired' | 'used_up' | 'inactive';
+
 export async function listCodes(
-    filters?: { packageId?: string; isActive?: boolean },
+    filters?: { packageId?: string; status?: CodeStatus },
     pagination?: { limit: number; offset: number },
 ) {
     const conditions = [];
     if (filters?.packageId) {
         conditions.push(eq(redemptionCode.packageId, filters.packageId));
     }
-    if (filters?.isActive !== undefined) {
-        conditions.push(eq(redemptionCode.isActive, filters.isActive));
+    if (filters?.status) {
+        const now = new Date();
+        switch (filters.status) {
+            case 'valid':
+                conditions.push(eq(redemptionCode.isActive, true));
+                conditions.push(or(isNull(redemptionCode.expiresAt), gt(redemptionCode.expiresAt, now))!);
+                conditions.push(or(isNull(redemptionCode.maxRedemptions), lt(redemptionCode.currentRedemptions, redemptionCode.maxRedemptions))!);
+                break;
+            case 'expired':
+                conditions.push(isNotNull(redemptionCode.expiresAt));
+                conditions.push(lte(redemptionCode.expiresAt, now));
+                break;
+            case 'used_up':
+                conditions.push(isNotNull(redemptionCode.maxRedemptions));
+                conditions.push(gte(redemptionCode.currentRedemptions, redemptionCode.maxRedemptions));
+                break;
+            case 'inactive':
+                conditions.push(eq(redemptionCode.isActive, false));
+                break;
+        }
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

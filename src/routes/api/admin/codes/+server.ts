@@ -1,6 +1,6 @@
 import { json, type RequestHandler } from '@sveltejs/kit';
 import { guardAdmin } from '$lib/server/credits/admin';
-import { createCodes, listCodes } from '$lib/server/credits/code-service';
+import { createCodes, listCodes, type CodeStatus } from '$lib/server/credits/code-service';
 import { getPackageById } from '$lib/server/credits/package-service';
 import { parsePagination } from '$lib/config/constants';
 
@@ -10,14 +10,14 @@ export const GET: RequestHandler = async ({ url, locals }) => {
     if (denied) return denied;
 
     const packageId = url.searchParams.get('packageId') ?? undefined;
-    const isActiveParam = url.searchParams.get('isActive');
+    const statusParam = url.searchParams.get('status') as CodeStatus | null;
     const { limit, offset } = parsePagination(url);
 
+    const validStatuses: CodeStatus[] = ['valid', 'expired', 'used_up', 'inactive'];
+    const status = statusParam && validStatuses.includes(statusParam) ? statusParam : undefined;
+
     const { items, total } = await listCodes(
-        {
-            packageId,
-            isActive: isActiveParam !== null ? isActiveParam === 'true' : undefined,
-        },
+        { packageId, status },
         { limit, offset },
     );
     return json({ codes: items, total, limit, offset });
