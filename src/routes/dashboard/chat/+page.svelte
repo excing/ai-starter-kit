@@ -4,6 +4,7 @@
     import * as Avatar from "$lib/components/ui/avatar";
     import { cn } from "$lib/utils";
     import { Chat } from "@ai-sdk/svelte";
+    import type { FileUIPart } from "ai";
     import { getCurrentUser } from "$lib/stores/auth.svelte";
     import { getCreditBalance, fetchCreditBalance } from "$lib/stores/credits.svelte";
     import { parseError, getErrorIcon, type ChatError } from "$lib/utils/chat-errors";
@@ -26,17 +27,21 @@
         ServerCrash,
         Brain,
         ChevronDown,
+        Paperclip,
+        X,
+        ImageIcon,
     } from "lucide-svelte";
     import { toast } from "svelte-sonner";
     import { goto } from "$app/navigation";
     import { tick, onMount } from "svelte";
     import { browser } from "$app/environment";
-    import { CREDITS, UI } from "$lib/config/constants";
+    import { CREDITS, UI, CHAT_ATTACHMENTS } from "$lib/config/constants";
     import { renderMarkdown, highlightCodeBlocks, injectCopyButtons } from "$lib/utils/markdown";
 
     let input = $state("");
     let messagesContainer = $state<HTMLDivElement | null>(null);
     let textareaRef = $state<HTMLTextAreaElement | null>(null);
+    let fileInputRef = $state<HTMLInputElement | null>(null);
 
     // 自动滚动控制
     let shouldAutoScroll = $state(true);
@@ -47,6 +52,11 @@
     let lastError = $state<ChatError | null>(null);
     let isOnline = $state(true);
     let failedMessage = $state<string | null>(null);
+
+    // ── 附件管理 ──
+    type PendingFile = { id: string; file: File; previewUrl: string };
+    let pendingFiles = $state<PendingFile[]>([]);
+    let isDragging = $state(false);
 
     // 响应式获取用户和积分
     let user = $derived(getCurrentUser());
@@ -75,7 +85,6 @@
         isSubmitting = false;
 
         if (options.isError || options.isDisconnect) {
-            // 如果是错误或断开连接，但 onError 没有被调用，设置一个通用错误
             if (!lastError) {
                 lastError = options.isDisconnect
                     ? { type: 'network', message: "连接已断开", retryable: true }
@@ -83,7 +92,6 @@
                 toast.error(lastError.message);
             }
         } else if (!options.isAbort) {
-            // 成功完成，刷新积分
             fetchCreditBalance();
         }
     }
@@ -175,10 +183,8 @@
         const streaming = isStreaming;
         const messageCount = chat.messages.length;
 
-        // 流结束瞬间 或 有消息但不在流式中（覆盖页面加载、新消息等场景）
         if ((prevStreaming && !streaming) || (messageCount > 0 && !streaming)) {
             if (messagesContainer) {
-                // 用 tick + rAF 确保 DOM 已更新
                 tick().then(() => {
                     requestAnimationFrame(() => {
                         if (!messagesContainer) return;
@@ -208,14 +214,116 @@
         }
     }
 
-    // 判断是否可以发送
+    // ── 附件：验证文件 ──
+    function validateFile(file: File): string | null {
+        if (!CHAT_ATTACHMENTS.ALLOWED_TYPES.includes(file.type)) {
+            return `不支持的文件类型: ${file.type || '未知'}`;
+        }
+        if (file.size > CHAT_ATTACHMENTS.MAX_FILE_SIZE) {
+            return `文件过大（上限 ${CHAT_ATTACHMENTS.MAX_SIZE_LABEL}）`;
+        }
+        return null;
+    }
+
+    // ── 附件：添加文件 ──
+    function addFiles(files: FileList | File[]) {
+        const fileArray = Array.from(files);
+        for (const file of fileArray) {
+            if (pendingFiles.length >= CHAT_ATTACHMENTS.MAX_FILES) {
+                toast.error(`最多同时上传 ${CHAT_ATTACHMENTS.MAX_FILES} 张图片`);
+                break;
+            }
+            const error = validateFile(file);
+            if (error) {
+                toast.error(error);
+                continue;
+            }
+            const previewUrl = URL.createObjectURL(file);
+            pendingFiles = [...pendingFiles, { id: crypto.randomUUID(), file, previewUrl }];
+        }
+    }
+
+    // ── 附件：移除文件 ──
+    function removeFile(id: string) {
+        const item = pendingFiles.find(f => f.id === id);
+        if (item) URL.revokeObjectURL(item.previewUrl);
+        pendingFiles = pendingFiles.filter(f => f.id !== id);
+    }
+
+    // ── 附件：文件 → FileUIPart (data URL) ──
+    function fileToDataUrl(file: File): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    async function buildFileUIParts(): Promise<FileUIPart[]> {
+        const parts: FileUIPart[] = [];
+        for (const pf of pendingFiles) {
+            const url = await fileToDataUrl(pf.file);
+            parts.push({ type: 'file', mediaType: pf.file.type, filename: pf.file.name, url });
+        }
+        return parts;
+    }
+
+    // ── 附件：文件选择器 ──
+    function openFilePicker() {
+        fileInputRef?.click();
+    }
+
+    function handleFileInput(e: Event) {
+        const target = e.target as HTMLInputElement;
+        if (target.files) addFiles(target.files);
+        target.value = ""; // 允许再次选择相同文件
+    }
+
+    // ── 附件：粘贴图片 ──
+    function handlePaste(e: ClipboardEvent) {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+        const imageFiles: File[] = [];
+        for (const item of items) {
+            if (item.type.startsWith("image/")) {
+                const file = item.getAsFile();
+                if (file) imageFiles.push(file);
+            }
+        }
+        if (imageFiles.length > 0) {
+            e.preventDefault();
+            addFiles(imageFiles);
+        }
+    }
+
+    // ── 附件：拖放 ──
+    function handleDragOver(e: DragEvent) {
+        e.preventDefault();
+        isDragging = true;
+    }
+    function handleDragLeave(e: DragEvent) {
+        e.preventDefault();
+        isDragging = false;
+    }
+    function handleDrop(e: DragEvent) {
+        e.preventDefault();
+        isDragging = false;
+        if (e.dataTransfer?.files) {
+            const images = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+            if (images.length > 0) addFiles(images);
+        }
+    }
+
+    // 判断是否可以发送（有文本或有附件即可）
     function canSend(): boolean {
-        return !!(input.trim() && !isSubmitting && !isStreaming && isOnline);
+        const hasContent = !!(input.trim() || pendingFiles.length > 0);
+        return hasContent && !isSubmitting && !isStreaming && isOnline;
     }
 
     // 发送消息（统一逻辑）
-    async function sendMessage(message: string) {
-        if (!message.trim() || isSubmitting || isStreaming || !isOnline) return;
+    async function sendMessage(message: string, files?: FileUIPart[]) {
+        if ((!message.trim() && (!files || files.length === 0)) || isSubmitting || isStreaming || !isOnline) return;
 
         // 重置状态
         failedMessage = message;
@@ -223,21 +331,34 @@
         isSubmitting = true;
         shouldAutoScroll = true;
 
-        // 重置输入框高度
         if (textareaRef) {
             textareaRef.style.height = "auto";
         }
 
-        // 发送消息（错误通过 onError/onFinish 回调处理）
-        chat.sendMessage({ text: message });
+        // 发送消息（AI SDK 自动将 FileUIPart 转为 data URL 并传输）
+        if (files && files.length > 0) {
+            chat.sendMessage({ text: message || undefined, files } as Parameters<typeof chat.sendMessage>[0]);
+        } else {
+            chat.sendMessage({ text: message });
+        }
     }
 
     // 提交表单
-    function handleSubmit() {
+    async function handleSubmit() {
         if (!canSend()) return;
         const message = input.trim();
         input = "";
-        sendMessage(message);
+
+        // 构建附件并清空
+        let files: FileUIPart[] | undefined;
+        if (pendingFiles.length > 0) {
+            files = await buildFileUIParts();
+            // 释放 blob URL
+            for (const pf of pendingFiles) URL.revokeObjectURL(pf.previewUrl);
+            pendingFiles = [];
+        }
+
+        sendMessage(message, files);
     }
 
     // 重试发送失败的消息
@@ -267,6 +388,11 @@
     function getInitials(name?: string | null): string {
         if (!name) return "U";
         return name.charAt(0).toUpperCase();
+    }
+
+    // 判断是否为图片类型的文件 part
+    function isImageFile(part: { type: string; mediaType?: string }): boolean {
+        return part.type === "file" && !!part.mediaType?.startsWith("image/");
     }
 </script>
 
@@ -302,11 +428,25 @@
     {/if}
 
     <!-- 消息区域 -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div
         bind:this={messagesContainer}
         onscroll={checkScrollPosition}
+        ondragover={handleDragOver}
+        ondragleave={handleDragLeave}
+        ondrop={handleDrop}
         class="flex-1 overflow-y-auto"
     >
+        <!-- 拖放叠加层 -->
+        {#if isDragging}
+            <div class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-primary/5 backdrop-blur-[2px]">
+                <div class="flex flex-col items-center gap-2 rounded-2xl border-2 border-dashed border-primary/40 bg-background/80 px-10 py-8">
+                    <ImageIcon class="h-10 w-10 text-primary/60" />
+                    <span class="text-sm font-medium text-primary/80">释放以添加图片</span>
+                </div>
+            </div>
+        {/if}
+
         {#if chat.messages.length === 0 && !isSubmitting}
             <!-- 空状态欢迎界面 -->
             <div class="flex h-full flex-col items-center justify-center px-4">
@@ -391,6 +531,32 @@
                                 {/if}
                             {/each}
 
+                            <!-- 图片附件（file parts）-->
+                            {#if message.parts.some(p => isImageFile(p))}
+                                <div class={cn(
+                                    "flex flex-wrap gap-2",
+                                    message.role === "user" ? "justify-end" : "justify-start"
+                                )}>
+                                    {#each message.parts as part}
+                                        {#if part.type === "file" && isImageFile(part)}
+                                            <a
+                                                href={part.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                class="group/img relative block overflow-hidden rounded-xl border border-border/60"
+                                            >
+                                                <img
+                                                    src={part.url}
+                                                    alt={part.filename || "图片"}
+                                                    class="max-h-64 max-w-full object-contain transition-opacity group-hover/img:opacity-90"
+                                                    loading="lazy"
+                                                />
+                                            </a>
+                                        {/if}
+                                    {/each}
+                                </div>
+                            {/if}
+
                             <!-- 正文内容（text parts）-->
                             {#if message.role === "user"}
                                 {#if message.parts.some(p => p.type === "text")}
@@ -451,7 +617,7 @@
                     </div>
                 {/if}
 
-                <!-- 错误状态：在最后一条消息下方显示错误提示 -->
+                <!-- 错误状态 -->
                 {#if lastError && !isSubmitting && !isStreaming}
                     {@const ErrorIcon = getErrorIcon(lastError.type)}
                     <div class="mb-6 flex items-center justify-center gap-3">
@@ -504,12 +670,60 @@
                 handleSubmit();
             }}
         >
-            <div class="relative flex items-end gap-2 rounded-2xl border bg-background p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20">
+            <!-- 附件预览条 -->
+            {#if pendingFiles.length > 0}
+                <div class="mb-2 flex flex-wrap gap-2">
+                    {#each pendingFiles as pf (pf.id)}
+                        <div class="group/thumb relative">
+                            <img
+                                src={pf.previewUrl}
+                                alt={pf.file.name}
+                                class="h-16 w-16 rounded-lg border border-border object-cover"
+                            />
+                            <button
+                                type="button"
+                                onclick={() => removeFile(pf.id)}
+                                class="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground shadow-sm opacity-0 transition-opacity group-hover/thumb:opacity-100"
+                            >
+                                <X class="h-3 w-3" />
+                            </button>
+                        </div>
+                    {/each}
+                </div>
+            {/if}
+
+            <div class={cn(
+                "relative flex items-end gap-2 rounded-2xl border bg-background p-2 shadow-sm focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20",
+                isDragging && "border-primary/50 ring-2 ring-primary/20"
+            )}>
+                <!-- 隐藏的文件选择器 -->
+                <input
+                    bind:this={fileInputRef}
+                    type="file"
+                    accept={CHAT_ATTACHMENTS.ALLOWED_TYPES.join(",")}
+                    multiple
+                    class="hidden"
+                    onchange={handleFileInput}
+                />
+
+                <!-- 附件按钮 -->
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    class="h-10 w-10 flex-shrink-0 rounded-xl text-muted-foreground hover:text-foreground"
+                    disabled={!isOnline || isSubmitting || isStreaming || pendingFiles.length >= CHAT_ATTACHMENTS.MAX_FILES}
+                    onclick={openFilePicker}
+                >
+                    <Paperclip class="h-4 w-4" />
+                </Button>
+
                 <Textarea
                     bind:ref={textareaRef}
                     bind:value={input}
                     oninput={autoResize}
                     onkeydown={handleKeydown}
+                    onpaste={handlePaste}
                     placeholder={isOnline ? "输入消息... (Enter 发送, Shift+Enter 换行)" : "网络已断开..."}
                     class="min-h-[44px] max-h-[200px] flex-1 resize-none border-0 bg-transparent p-2 shadow-none focus-visible:ring-0"
                     rows={1}
