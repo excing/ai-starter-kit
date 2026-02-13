@@ -32,6 +32,7 @@
     import { tick, onMount } from "svelte";
     import { browser } from "$app/environment";
     import { CREDITS, UI } from "$lib/config/constants";
+    import { renderMarkdown, highlightCodeBlocks, injectCopyButtons } from "$lib/utils/markdown";
 
     let input = $state("");
     let messagesContainer = $state<HTMLDivElement | null>(null);
@@ -166,6 +167,29 @@
         if (messageCount > 0 && shouldAutoScroll) {
             scrollToBottom(false);
         }
+    });
+
+    // 流结束后：高亮代码块 + 注入复制按钮
+    let prevStreaming = $state(false);
+    $effect(() => {
+        const streaming = isStreaming;
+        const messageCount = chat.messages.length;
+
+        // 流结束瞬间 或 有消息但不在流式中（覆盖页面加载、新消息等场景）
+        if ((prevStreaming && !streaming) || (messageCount > 0 && !streaming)) {
+            if (messagesContainer) {
+                // 用 tick + rAF 确保 DOM 已更新
+                tick().then(() => {
+                    requestAnimationFrame(() => {
+                        if (!messagesContainer) return;
+                        highlightCodeBlocks(messagesContainer).then(() => {
+                            if (messagesContainer) injectCopyButtons(messagesContainer);
+                        });
+                    });
+                });
+            }
+        }
+        prevStreaming = streaming;
     });
 
     // 自动调整输入框高度
@@ -342,7 +366,7 @@
                         {/if}
 
                         <!-- 消息内容 -->
-                        <div class="flex max-w-[80%] flex-col gap-2">
+                        <div class="flex max-w-[80%] flex-col gap-2 min-w-0">
                             <!-- 思考过程（reasoning parts）-->
                             {#each message.parts as part}
                                 {#if part.type === "reasoning" && part.text}
@@ -357,10 +381,8 @@
                                             {/if}
                                             <ChevronDown class="ml-auto h-3.5 w-3.5 transition-transform group-open:rotate-180" />
                                         </summary>
-                                        <div class="border-t border-border/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground/80">
-                                            {#each part.text.split('\n') as line, lineIndex}
-                                                {#if lineIndex > 0}<br />{/if}{line}
-                                            {/each}
+                                        <div class="border-t border-border/40 px-3 py-2 text-xs leading-relaxed text-muted-foreground/80 prose prose-xs max-w-none dark:prose-invert prose-p:my-0.5 prose-pre:my-1">
+                                            {@html renderMarkdown(part.text)}
                                             {#if isThinking}
                                                 <span class="ml-0.5 inline-block h-3.5 w-0.5 animate-pulse bg-current align-middle"></span>
                                             {/if}
@@ -370,37 +392,35 @@
                             {/each}
 
                             <!-- 正文内容（text parts）-->
-                            {#if message.parts.some(p => p.type === "text") || message.role === "user"}
-                                <div
-                                    class={cn(
-                                        "rounded-2xl px-4 py-3",
-                                        message.role === "user"
-                                            ? "bg-primary text-primary-foreground"
-                                            : "bg-muted"
-                                    )}
-                                >
-                                    {#each message.parts as part}
-                                        {#if part.type === "text"}
-                                            <div
-                                                class={cn(
-                                                    "prose prose-sm max-w-none dark:prose-invert",
-                                                    "prose-p:my-1 prose-p:leading-relaxed",
-                                                    "prose-pre:my-2 prose-pre:rounded-lg prose-pre:bg-black/10 dark:prose-pre:bg-white/10",
-                                                    "prose-code:rounded prose-code:bg-black/10 prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/10",
-                                                    "prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5",
-                                                    message.role === "user" && "prose-invert"
-                                                )}
-                                            >
-                                                {#each part.text.split('\n') as line, lineIndex}
-                                                    {#if lineIndex > 0}<br />{/if}{line}
-                                                {/each}
-                                                {#if showCursor}
-                                                    <span class="ml-0.5 inline-block h-5 w-0.5 animate-pulse bg-current align-middle"></span>
-                                                {/if}
-                                            </div>
-                                        {/if}
-                                    {/each}
-                                </div>
+                            {#if message.role === "user"}
+                                {#if message.parts.some(p => p.type === "text")}
+                                    <div class="rounded-2xl px-4 py-3 bg-primary text-primary-foreground">
+                                        {#each message.parts as part}
+                                            {#if part.type === "text"}
+                                                <div class="whitespace-pre-wrap break-words">{part.text}</div>
+                                            {/if}
+                                        {/each}
+                                    </div>
+                                {/if}
+                            {:else}
+                                {#each message.parts as part}
+                                    {#if part.type === "text"}
+                                        <div
+                                            class={cn(
+                                                "prose prose-sm max-w-none dark:prose-invert",
+                                                "prose-p:my-1.5 prose-p:leading-relaxed",
+                                                "prose-code:rounded prose-code:bg-black/10 prose-code:px-1 prose-code:py-0.5 prose-code:before:content-none prose-code:after:content-none dark:prose-code:bg-white/15",
+                                                "prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5",
+                                                "prose-headings:my-3",
+                                            )}
+                                        >
+                                            {@html renderMarkdown(part.text)}
+                                            {#if showCursor}
+                                                <span class="ml-0.5 inline-block h-5 w-0.5 animate-pulse bg-current align-middle"></span>
+                                            {/if}
+                                        </div>
+                                    {/if}
+                                {/each}
                             {/if}
 
                             <!-- 流式输出时显示停止按钮 -->
