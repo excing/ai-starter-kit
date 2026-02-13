@@ -1,17 +1,15 @@
 <script lang="ts">
     import * as Card from "$lib/components/ui/card";
     import * as Table from "$lib/components/ui/table";
-    import * as Dialog from "$lib/components/ui/dialog";
     import { Button } from "$lib/components/ui/button";
-    import { Input } from "$lib/components/ui/input";
-    import { Label } from "$lib/components/ui/label";
     import { Badge } from "$lib/components/ui/badge";
-    import { Textarea } from "$lib/components/ui/textarea";
     import { Skeleton } from "$lib/components/ui/skeleton";
-    import { Package, Plus, Pencil, Loader2, Eye, EyeOff } from "lucide-svelte";
+    import { Package, Plus, Pencil, Eye, EyeOff } from "lucide-svelte";
     import { toast } from "svelte-sonner";
     import { PAGINATION } from "$lib/config/constants";
     import Pagination from "$lib/components/common/Pagination.svelte";
+    import PackageFormDialog from "$lib/components/admin/PackageFormDialog.svelte";
+    import type { PackageFormData } from "$lib/components/admin/PackageFormDialog.svelte";
     import type { CreditPackage } from "$lib/types/credits";
 
     let packages = $state<CreditPackage[]>([]);
@@ -22,11 +20,8 @@
 
     // Dialog state
     let dialogOpen = $state(false);
+    let dialogMode = $state<"create" | "edit">("create");
     let editing = $state<CreditPackage | null>(null);
-    let formName = $state("");
-    let formCredits = $state("");
-    let formPrice = $state("");
-    let formDescription = $state("");
     let submitting = $state(false);
 
     async function loadPackages() {
@@ -48,73 +43,43 @@
 
     function openCreateDialog() {
         editing = null;
-        formName = "";
-        formCredits = "";
-        formPrice = "";
-        formDescription = "";
+        dialogMode = "create";
         dialogOpen = true;
     }
 
     function openEditDialog(pkg: CreditPackage) {
         editing = pkg;
-        formName = pkg.name;
-        formCredits = String(pkg.credits);
-        formPrice = String(pkg.price);
-        formDescription = pkg.description ?? "";
+        dialogMode = "edit";
         dialogOpen = true;
     }
 
-    async function handleSubmit() {
-        if (!formName.trim()) {
-            toast.error("套餐名称不能为空");
-            return;
-        }
-        const credits = parseInt(formCredits, 10);
-        if (!credits || credits <= 0) {
-            toast.error("积分数量必须为正整数");
-            return;
-        }
-        const price = parseInt(formPrice, 10);
-        if (isNaN(price) || price < 0) {
-            toast.error("价格必须为非负整数（单位：分）");
-            return;
-        }
+    async function handleFormSubmit(data: PackageFormData) {
         submitting = true;
-
-        const payload = {
-            name: formName.trim(),
-            credits,
-            price,
-            description: formDescription.trim() || null,
-        };
-
         try {
             if (editing) {
                 const res = await fetch(`/api/admin/packages/${editing.id}`, {
                     method: "PUT",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify(data),
                 });
-                const data = await res.json();
+                const result = await res.json();
                 if (!res.ok) {
-                    toast.error(data.error || "更新失败");
+                    toast.error(result.error || "更新失败");
                     return;
                 }
-                // 成功后用服务器数据更新本地列表
-                packages = packages.map(p => p.id === editing!.id ? data.package : p);
+                packages = packages.map(p => p.id === editing!.id ? result.package : p);
                 toast.success("套餐已更新");
             } else {
                 const res = await fetch("/api/admin/packages", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify(data),
                 });
-                const data = await res.json();
+                const result = await res.json();
                 if (!res.ok) {
-                    toast.error(data.error || "创建失败");
+                    toast.error(result.error || "创建失败");
                     return;
                 }
-                // 成功后跳转到第一页并重新加载
                 if (page === 1) {
                     await loadPackages();
                 } else {
@@ -292,72 +257,10 @@
     </Card.Root>
 </div>
 
-<!-- Create/Edit Dialog -->
-<Dialog.Root bind:open={dialogOpen}>
-    <Dialog.Content>
-        <Dialog.Header>
-            <Dialog.Title>{editing ? "编辑套餐" : "创建套餐"}</Dialog.Title>
-            <Dialog.Description>
-                {editing ? "修改套餐信息" : "填写以下信息创建新的积分套餐"}
-            </Dialog.Description>
-        </Dialog.Header>
-        <form
-            class="flex flex-col gap-4"
-            onsubmit={(e) => { e.preventDefault(); handleSubmit(); }}
-        >
-            <div class="space-y-2">
-                <Label for="pkg-name">套餐名称</Label>
-                <Input
-                    id="pkg-name"
-                    bind:value={formName}
-                    placeholder="例如：基础套餐"
-                    disabled={submitting}
-                />
-            </div>
-            <div class="space-y-2">
-                <Label for="pkg-credits">积分数量</Label>
-                <Input
-                    id="pkg-credits"
-                    type="number"
-                    bind:value={formCredits}
-                    placeholder="例如：100"
-                    min="1"
-                    disabled={submitting}
-                />
-            </div>
-            <div class="space-y-2">
-                <Label for="pkg-price">价格（分）</Label>
-                <Input
-                    id="pkg-price"
-                    type="number"
-                    bind:value={formPrice}
-                    placeholder="例如：990 表示 ¥9.90"
-                    min="0"
-                    disabled={submitting}
-                />
-            </div>
-            <div class="space-y-2">
-                <Label for="pkg-desc">描述（可选）</Label>
-                <Textarea
-                    id="pkg-desc"
-                    bind:value={formDescription}
-                    placeholder="套餐描述"
-                    disabled={submitting}
-                />
-            </div>
-            <Dialog.Footer>
-                <Button variant="outline" type="button" onclick={() => (dialogOpen = false)} disabled={submitting}>
-                    取消
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                    {#if submitting}
-                        <Loader2 class="mr-2 h-4 w-4 animate-spin" />
-                        提交中...
-                    {:else}
-                        {editing ? "保存" : "创建"}
-                    {/if}
-                </Button>
-            </Dialog.Footer>
-        </form>
-    </Dialog.Content>
-</Dialog.Root>
+<PackageFormDialog
+    mode={dialogMode}
+    bind:open={dialogOpen}
+    initialData={editing}
+    bind:submitting
+    onSubmit={handleFormSubmit}
+/>
